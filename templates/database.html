@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}All Stocks{% endblock %}
+{% block content %}
+<div class="container py-3 my-3">
+  <h2 class="pb-4">Top 500 Stocks</h2>
+
+   <div class="d-flex align-items-center mb-3">
+  <!-- SORT FORM -->
+  <form method="get" action="{{ url_for('database') }}" class="d-flex align-items-center gap-2">
+    <label for="sortSelect" class="form-label fw-semibold mb-0">Sort Stocks By:</label>
+
+    <select id="sortSelect" name="sort_by" class="form-select w-auto" onchange="this.form.submit()">
+      <option value="">Select an option</option>
+      <option value="volume" {% if sort_by == 'volume' %}selected{% endif %}>Volume</option>
+      <option value="chp" {% if sort_by == 'chp' %}selected{% endif %}>Change %</option>
+      <option value="lp" {% if sort_by == 'lp' %}selected{% endif %}>Price</option>
+      <option value="trend" {% if sort_by == 'trend' %}selected{% endif %}>Trend</option>
+    </select>
+
+    <!-- Hidden input to preserve order toggle -->
+    <input type="hidden" name="order" value="{% if order == 'desc' and sort_by %}asc{% else %}desc{% endif %}">
+  </form>
+
+  <!-- Direction toggle button -->
+  {% if sort_by %}
+    <a href="{{ url_for('database', sort_by=sort_by, order='asc' if order=='desc' else 'desc') }}"
+       class="btn btn-outline-secondary btn-sm ms-2"
+       title="Toggle sort order">
+       {% if order == 'desc' %}
+         ▲
+       {% else %}
+         ▼
+       {% endif %}
+    </a>
+  {% endif %}
+</div>
+
+{% if sort_by %}
+  <p class="text-muted small ms-1">
+    Sorting by <strong>{{ sort_by|capitalize }}</strong>
+    ({{ 'Descending' if order == 'desc' else 'Ascending' }})
+  </p>
+{% endif %}
+
+
+  <div class="table-responsive">
+    <table class="table table-hover table-striped align-middle table-sm">
+      <thead class="table-dark sticky-top">
+        <tr>
+          <th scope="col" >Symbol</th>
+          <th scope="col">Name</th>
+          <th scope="col">Price(₹)</th>
+          <th scope="col">Change(₹)</th>
+          <th scope="col">Change %</th>
+          <th scope="col" class="d-none d-sm-table-cell">From Open (%)</th>
+          <th scope="col" class="d-none d-md-table-cell">Open(₹)</th>
+          <th scope="col" class="d-none d-md-table-cell">Close(₹)</th>
+          <th scope="col" class="d-none d-lg-table-cell">High/Low(₹)</th>
+          <th scope="col" class="d-none d-lg-table-cell">Volume</th>
+          <th scope="col" class="d-none d-xl-table-cell">Trend</th>
+          <th scope="col" class="text-center">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for stock in all_stocks %}
+        {% set v = stock['v'] %}
+        <tr>
+          <!-- SYMBOL -->
+          <td class="text-center">
+            <a href="{{ url_for('stock_info', symbol=v['symbol']) }}" class="fw-semibold text-decoration-none">
+              {{ stock["n"] }}
+            </a>
+          </td>
+
+          <!-- NAME -->
+          <td class="text-center" style="font-size: 0.7rem;">
+              {{ stock["v"]["name"] }}
+          </td>
+
+          <!-- PRICE -->
+          <td class="text-center fw-semibold">
+            {{ "%.2f"|format(v["lp"]) if v["lp"] else "-" }}
+          </td>
+
+          <!-- CHANGE ₹ -->
+          <td class="text-center {% if v['ch'] > 0 %}text-success{% elif v['ch'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["ch"]) if v["ch"] else "0.00" }}
+          </td>
+
+          <!-- CHANGE % -->
+          <td class="text-center {% if v['chp'] > 0 %}text-success{% elif v['chp'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["chp"]) if v["chp"] else "0.00" }}%
+          </td>
+
+          <!-- FROM OPEN -->
+          <td class="text-center d-none d-sm-table-cell {% if v['from_open_percent'] > 0 %}text-success{% elif v['from_open_percent'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] else "-" }}%
+          </td>
+
+          <!-- OPEN -->
+          <td class="text-center d-none d-md-table-cell">
+            {{ "%.2f"|format(v["open_price"]) if v["open_price"] else "-" }}
+          </td>
+
+          <!-- CLOSE -->
+          <td class="text-center d-none d-md-table-cell">
+            {{ "%.2f"|format(v["prev_close_price"]) if v["prev_close_price"] else "-" }}
+          </td>
+
+          <!-- HIGH / LOW -->
+          <td class="text-center d-none d-lg-table-cell">
+            {{ "%.2f"|format(v["high_price"]) if v["high_price"] else "-" }}/
+            {{ "%.2f"|format(v["low_price"]) if v["low_price"] else "-" }}
+          </td>
+
+          <!-- VOLUME -->
+          <td class="text-center d-none d-lg-table-cell">
+            {{ "{:,}".format(v["volume"]) if v["volume"] else "-" }}
+          </td>
+
+          <!-- TREND -->
+          <td class="text-center d-none d-xl-table-cell {% if v['trend'] == 'Bullish' %}text-success{% elif v['trend'] == 'Bearish' %}text-danger{% else %}text-secondary{% endif %}">
+            {{ v["trend"] if v["trend"] else "-" }}
+          </td>
+
+          <!-- ACTION -->
+          <td>
+            <div class="text-center d-flex justify-content-center gap-2">
+              <a href="{{ url_for('buy', symbol=v['symbol']) }}" class="btn btn-success btn-sm px-2">Buy</a>
+              <a href="{{ url_for('sell', symbol=v['symbol']) }}" class="btn btn-danger btn-sm px-2">Sell</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

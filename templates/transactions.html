@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Transactions{% endblock %}
+
+{% block content %}
+<div class="container py-3 my-3">
+  <h2 class="pb-4">Transaction History</h2>
+
+<div class="table-responsive">
+  <table class="table table-hover table-striped align-middle table-sm">
+        <thead class="table-dark sticky-top">
+          <tr>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Txn ID</th>
+            <th scope="col">Symbol</th>
+            <th scope="col">Action</th>
+            <th scope="col">Quantity</th>
+            <th scope="col">Price(₹)</th>
+            <th scope="col">Todays Price(₹)</th>
+            <th scope="col">Total Value(₹)</th>
+            <th scope="col">P&L(₹)</th>
+            <th scope="col">Remarks</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for tx in data %}
+          <tr>
+
+            <td class="text-center">
+              {{tx["timestamp"]}}
+            </td>
+            <td class="text-center">
+              {{tx["id"]}}
+            </td>
+            <td class="text-center">
+              {{tx["symbol"]}}
+            </td>
+           <td class="text-center">
+              {{tx["type"]}}
+            </td>
+            <td class="text-center">
+              {{tx["quantity"]}}
+            </td>
+            <td class="text-center">
+              {{tx["cost_price"]}}
+            </td>
+              <td class="text-center">
+                  {{tx["current_price"]}}
+                </td>
+            <td class="text-center">
+              {{ tx["total_value"] }}
+            </td>
+              <td class="text-center {% if tx['pnl'] > 0 %}text-success{% elif tx['pnl'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(tx['pnl']) if tx['pnl'] else "0.00" }}
+          </td>
+
+            <td class="text-center">
+              {{tx["remarks"]}}
+            </td
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+  </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,41 @@
+.nav-pills .nav-link {
+  color: #ffffff !important;               /* white text */
+  background-color: transparent !important; /* no blue background */
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover state */
+.nav-pills .nav-link:hover {
+  color: #f8f9fa !important;                /* brighter white */
+  background-color: rgba(255, 255, 255, 0.1) !important; /* soft white overlay */
+  transform: translateY(-1px);
+}
+
+/* Active link (the current page) */
+.nav-pills .nav-link.active {
+  color: #ffffff !important;                /* white text */
+  background-color: rgba(255, 255, 255, 0.15) !important; /* soft glow background */
+  font-weight: 600;
+  border-radius: 6px;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+/* Optional: Make links slightly smaller for elegance */
+.nav-pills .nav-link {
+  font-size: 1rem;
+  letter-spacing: 0.4px;
+  font-family: 'Poppins', sans-serif;
+}
+
+header {
+  background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 0 0 8px px;
+}
+
+/* Optional: ensure container background doesn't override */
+.container {
+  background-color: transparent !important;
+}

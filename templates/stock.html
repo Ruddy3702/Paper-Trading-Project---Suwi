@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Data{% endblock %}
+
+{% block content %}
+<div class="container py-5 px-5">
+<div class="p-5 mb-4 bg-body-tertiary rounded-3">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">{{ stock['v']['name'] }}<h3>{{ stock['v']['symbol'] }}</h3></h1>
+        <p class="col-md-8 fs-4">Data at a glance</p>
+        <div class="table-responsive">
+          <table class="table table-hover table-striped align-middle table-sm">
+      <thead class="table-dark sticky-top">
+        <tr>
+          <th scope="col" >Symbol</th>
+          <th scope="col">Price(₹)</th>
+          <th scope="col">Change(₹)</th>
+          <th scope="col">Change %</th>
+          <th scope="col" class="d-none d-sm-table-cell">From Open (%)</th>
+          <th scope="col" class="d-none d-md-table-cell">Open(₹)</th>
+          <th scope="col" class="d-none d-md-table-cell">Close(₹)</th>
+          <th scope="col" class="d-none d-lg-table-cell">High/Low(₹)</th>
+          <th scope="col" class="d-none d-lg-table-cell">Volume</th>
+          <th scope="col" class="d-none d-xl-table-cell">Trend</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% set v = stock['v'] %}
+        <tr>
+          <!-- SYMBOL -->
+          <td class="text-center fw-semibold text-decoration-none">
+              {{ stock["n"] }}
+
+          </td>
+
+          <!-- PRICE -->
+          <td class="text-center fw-semibold">
+            {{ "%.2f"|format(v["lp"]) if v["lp"] else "-" }}
+          </td>
+
+          <!-- CHANGE ₹ -->
+          <td class="text-center {% if v['ch'] > 0 %}text-success{% elif v['ch'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["ch"]) if v["ch"] else "0.00" }}
+          </td>
+
+          <!-- CHANGE % -->
+          <td class="text-center {% if v['chp'] > 0 %}text-success{% elif v['chp'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["chp"]) if v["chp"] else "0.00" }}%
+          </td>
+
+          <!-- FROM OPEN -->
+          <td class="text-center d-none d-sm-table-cell {% if v['from_open_percent'] > 0 %}text-success{% elif v['from_open_percent'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] else "-" }}%
+          </td>
+
+          <!-- OPEN -->
+          <td class="text-center d-none d-md-table-cell">
+            {{ "%.2f"|format(v["open_price"]) if v["open_price"] else "-" }}
+          </td>
+
+          <!-- CLOSE -->
+          <td class="text-center d-none d-md-table-cell">
+            {{ "%.2f"|format(v["prev_close_price"]) if v["prev_close_price"] else "-" }}
+          </td>
+
+          <!-- HIGH / LOW -->
+          <td class="text-center d-none d-lg-table-cell">
+            {{ "%.2f"|format(v["high_price"]) if v["high_price"] else "-" }}/
+            {{ "%.2f"|format(v["low_price"]) if v["low_price"] else "-" }}
+          </td>
+
+          <!-- VOLUME -->
+          <td class="text-center d-none d-lg-table-cell">
+            {{ "{:,}".format(v["volume"]) if v["volume"] else "-" }}
+          </td>
+
+          <!-- TREND -->
+          <td class="text-center d-none d-xl-table-cell {% if v['trend'] == 'Bullish' %}text-success{% elif v['trend'] == 'Bearish' %}text-danger{% else %}text-secondary{% endif %}">
+            {{ v["trend"] if v["trend"] else "-" }}
+          </td>
+
+        </tr>
+      </tbody>
+    </table>
+        <a href="{{ url_for('buy', symbol=stock['v']['symbol']) }}" class="btn btn-success btn-lg px-4 py-2 w-30">Buy</a>
+        <a href="{{ url_for('sell', symbol=stock['v']['symbol']) }}" class="btn btn-danger btn-lg px-4 py-2 w-30">Sell</a>
+    </div>
+    </div>
+</div>
+{% endblock %}

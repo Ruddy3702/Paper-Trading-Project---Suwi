@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block title %}NEWS{% endblock %}
+
+{% block content %}
+<div class="container py-1 my-3">
+  <h2 class="pb-4">News</h2>
+  <h4>{{ render_form(form) }}</h4>
+    </div>
+
+
+{% if data %}
+<div class="d-flex flex-column flex-md-row p-4 gap-4 py-md-5 align-items-center justify-content-center">
+  <div class="list-group">
+    {% for news in data %}
+    <a href="{{ news['link'] }}" target="_blank"
+       class="list-group-item list-group-item-action d-flex gap-3 py-3" aria-current="true">
+      <div class="d-flex w-100 justify-content-between">
+        <div>
+          <h6 class="mb-0">{{ news['title'] }}</h6>
+          <p class="mb-0 opacity-75">{{ news['snippet'] }}</p>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% elif query %}
+<div class="text-center text-muted py-5">No news found for "{{ query }}".</div>
+{% endif %}
+{% endblock %}
+
