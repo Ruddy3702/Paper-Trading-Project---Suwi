@@ -1,0 +1,10 @@
+Requests==2.31.0
+WTForms==3.0.1
+Flask_WTF==1.2.1
+Flask~=3.1.2
+flask_sqlalchemy==3.1.1
+SQLAlchemy==2.0.25
+fyers_apiv3~=3.1.7
+
+fyers_apiv3~=3.1.7
+Flask-Bootstrap~=3.3.7.1
