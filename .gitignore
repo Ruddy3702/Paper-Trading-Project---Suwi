@@ -3,10 +3,6 @@ utils/access_token.txt
 instance/transaction_data.db
 __pycache__
 .idea
-Data/fyers_logs/fyersApi.log
-Data/fyers_logs/fyersRequests.log
-Data/stock_cache.json
-Data/token_cache.json
 utils/test.py
 Data/NSE_CM.csv
 Data/NSE_EQ_names.csv
