@@ -84,14 +84,26 @@
           </td>
 
           <!-- CHANGE ₹ -->
-          <td class="text-center {% if v['ch'] > 0 %}text-success{% elif v['ch'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(v["ch"]) if v["ch"] else "0.00" }}
-          </td>
+          {% set ch = v.get('ch', v.get('price_change', 0)) %}
+<td class="text-center
+    {% if ch > 0 %}text-success
+    {% elif ch < 0 %}text-danger
+    {% else %}text-secondary
+    {% endif %}
+">
+  {{ "%.2f"|format(ch) }}
+</td>
 
           <!-- CHANGE % -->
-          <td class="text-center {% if v['chp'] > 0 %}text-success{% elif v['chp'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(v["chp"]) if v["chp"] else "0.00" }}%
-          </td>
+          {% set chp = v.get('chp', v.get('percent_change', 0)) %}
+<td class="text-center
+    {% if chp > 0 %}text-success
+    {% elif chp < 0 %}text-danger
+    {% else %}text-secondary
+    {% endif %}
+">
+  {{ "%.2f"|format(chp) }}%
+</td>
 
           <!-- FROM OPEN -->
           <td class="text-center d-none d-sm-table-cell {% if v['from_open_percent'] > 0 %}text-success{% elif v['from_open_percent'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
