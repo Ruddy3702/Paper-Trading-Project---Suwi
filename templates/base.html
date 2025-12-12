@@ -163,12 +163,41 @@
           <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
              href="{{ url_for('portfolio') }}">Portfolio</a>
         </li>
+        {% if not logged_in: %}
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
+             href="{{ url_for('login') }}">Login</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
+             href="{{ url_for('register') }}">Register</a>
+        </li>
+        {% elif logged_in: %}
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
+             href="{{ url_for('logout') }}">Logout</a>
+        </li>
+        {% endif %}
+
+
         </ul>
     </header>
+</div>
+<div class="col-6 mx-5 px-2 py-2">
+{% with messages = get_flashed_messages() %}
+    {% if messages: %}
+    <ul class="flashes">
+        {% for msg in messages %}
+        <li>{{msg}}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+{% endwith %}
 </div>
 
 
 {% block content %}
+
 {% endblock %}
 
 {% block footer %}

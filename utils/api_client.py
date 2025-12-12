@@ -331,5 +331,3 @@ def get_stock_news():
     article = response_news.json()["articles"]
     ten_articles = article[:10]
     return ten_articles
-
-

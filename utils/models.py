@@ -1,8 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Float, DateTime
+from sqlalchemy import String, Float, DateTime, Integer
 from datetime import datetime
 import uuid
+from flask_login import UserMixin
 
 # This is where the data lives
 # db = sqlite3.connect("transaction_data.db")
@@ -12,7 +13,8 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class= Base)
 
 class Transaction(db.Model):
-    id: Mapped[str] = mapped_column(String(40), primary_key=True, unique= True, default=lambda: str(uuid.uuid4()))
+    txn_id: Mapped[str] = mapped_column(String(40), primary_key=True, unique= True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(40), nullable=False)
     symbol: Mapped[str] = mapped_column(String(15), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     type: Mapped[str] = mapped_column(String(4), nullable=False)  # BUY/SELL
@@ -24,7 +26,8 @@ class Transaction(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
+            "user_id" : self.user_id,
+            "txn_id": self.txn_id,
             "symbol": self.symbol,
             "type": self.type,
             "quantity": self.quantity,
@@ -35,6 +38,7 @@ class Transaction(db.Model):
         }
 
 class Portfolio(db.Model):
+    user_id: Mapped[str] = mapped_column(String(40), nullable=False)
     symbol: Mapped[str] = mapped_column(String(15), primary_key=True, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
@@ -46,6 +50,7 @@ class Portfolio(db.Model):
 
     def to_dict(self):
         return {
+            "user_id" : self.user_id,
             "symbol": self.symbol,
             "type": self.type,
             "quantity": self.quantity,
@@ -55,3 +60,27 @@ class Portfolio(db.Model):
             "remarks": self.remarks or "NA",
         }
 
+class UserData(UserMixin, db.Model):
+    user: Mapped[str] = mapped_column(String(15), primary_key= True, unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(50), nullable=False)
+    fyers_client_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    fyers_secret_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    fyers_redirect_url: Mapped[str] = mapped_column(String(100), nullable=False)
+    google_api_key: Mapped[str] = mapped_column(String(150), nullable=False)
+    cx: Mapped[str] = mapped_column(String(150), nullable=False)
+    fyers_auth_code: Mapped[str] = mapped_column(String(600), nullable=False)
+
+    def get_id(self):
+        return self.user
+
+    def to_dict(self):
+        return {
+            "user_id" : self.user_id,
+            "password": self.password,
+            "fyers_client_id": self.fyers_client_id,
+            "fyers_secret_key": self.fyers_secret_key,
+            "fyers_redirect_url": self.fyers_redirect_url,
+            "google_api_key": self.google_api_key,
+            "cx": self.cx,
+            "fyers_auth_code": self.fyers_auth_code,
+        }
