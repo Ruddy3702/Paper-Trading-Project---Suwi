@@ -3,5 +3,11 @@ __pycache__
 utils/test.py
 .env
 unused.py
-
-
+backup-repo.git
+data/fyers_logs/fyersApi.log
+data/fyers_logs/fyersRequests.log
+data/token_cache.json
+data/stock_cache.json
+instance/transaction_data.db
+utils/refresh_token.txt
+utils/access_token.txt
