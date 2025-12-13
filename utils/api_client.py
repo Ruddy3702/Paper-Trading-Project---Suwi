@@ -1,18 +1,28 @@
 from fyers_apiv3 import fyersModel
 import pandas as pd
 import requests, os, hashlib, time, json
-
+from utils.models import UserData, db
+from utils.crypto_utils import decrypt, encrypt
+from flask_login import current_user
 # =========================
 #        CONFIG
 # =========================
 
-# Fyers credentials
-FYERS_CLIENT_ID = os.getenv("FYERS_CLIENT_ID")          # e.g. "ABCD1234-100"
-FYERS_SECRET_KEY = os.getenv("FYERS_SECRET_KEY")        # app secret from Fyers app
-PIN = os.getenv("PIN")                      # Fyers PIN (string)
+PIN = os.getenv("PIN","1234")
 
-# Optional: only needed when refresh token is invalid/expired
-FYERS_AUTH_CODE = os.getenv("FYERS_AUTH_CODE")  # short-lived auth_code from redirect URL
+# Fyers credentials
+def get_fyers_credentials():
+    if not current_user.is_authenticated:
+        raise RuntimeError("User not logged in")
+
+    return {
+        "client_id": decrypt(current_user.fyers_client_id),
+        "secret_key": decrypt(current_user.fyers_secret_key),
+        "auth_code": decrypt(current_user.fyers_auth_code) if current_user.fyers_auth_code else None,
+        "fyers_redirect_url": decrypt(current_user.fyers_redirect_url),
+    }
+
+
 
 FYERS_REFRESH_URL = "https://api-t1.fyers.in/api/v3/validate-refresh-token"
 FYERS_VALIDATE_AUTH_URL = "https://api-t1.fyers.in/api/v3/validate-authcode"
@@ -21,10 +31,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "../Data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-REFRESH_TOKEN_FILE = os.path.join(BASE_DIR, "refresh_token.txt")
 ACCESS_TOKEN_FILE = os.path.join(BASE_DIR, "access_token.txt")  # not used but kept
 TOKEN_CACHE_FILE = os.path.join(DATA_DIR, "token_cache.json")
 
+def load_user_data(current_user):
+    user_data = UserData.query.filter_by(user=current_user.user).first()
+    print(type(user_data))
 
 # =========================
 #   AUTH CODE → TOKENS
@@ -37,6 +49,9 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
     - Caches access_token + timestamp in token_cache.json
     Returns: access_token (str)
     """
+    creds = get_fyers_credentials()
+    FYERS_CLIENT_ID = creds["client_id"]
+    FYERS_SECRET_KEY = creds["secret_key"]
     if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
         raise Exception("CLIENT_ID/SECRET_KEY not set in environment.")
 
@@ -60,10 +75,9 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
     access_token = data["access_token"]
     refresh_token = data.get("refresh_token")
 
-    # Save refresh token for future refresh calls
-    if refresh_token:
-        with open(REFRESH_TOKEN_FILE, "w") as f:
-            f.write(refresh_token)
+    current_user.fyers_refresh_token = encrypt(refresh_token)
+    current_user.fyers_auth_code = None
+    db.session.commit()
 
     # Cache access token with timestamp
     with open(TOKEN_CACHE_FILE, "w") as f:
@@ -77,42 +91,51 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
 #   ACCESS TOKEN HANDLER
 # =========================
 
+def get_fyers_authcode(*, client_id, secret_key, redirect_uri):
+    session = fyersModel.SessionModel(
+        client_id=client_id,
+        secret_key=secret_key,
+        redirect_uri=redirect_uri,
+        response_type="code"
+    )
+    return session.generate_authcode()
+
+
 def get_fyers_access_token() -> str:
     """Fetch or reuse Fyers access token, refreshing only every 12 hours."""
 
-    # 1) Use cached token if still valid (12 hours)
+    creds = get_fyers_credentials()
+    FYERS_CLIENT_ID = creds["client_id"]
+    FYERS_SECRET_KEY = creds["secret_key"]
+
+    # 1) Use cached access token if still valid (12 hours)
     if os.path.exists(TOKEN_CACHE_FILE):
-        with open(TOKEN_CACHE_FILE, "r") as f:
-            try:
+        try:
+            with open(TOKEN_CACHE_FILE, "r") as f:
                 cache = json.load(f)
-            except json.JSONDecodeError:
-                cache = {}
+        except json.JSONDecodeError:
+            cache = {}
 
         access_token = cache.get("access_token")
         timestamp = cache.get("timestamp", 0)
 
-        if access_token and (time.time() - timestamp) < 43200:  # 12 * 60 * 60
+        if access_token and (time.time() - timestamp) < 43200:
             print("Using cached Fyers access token.")
             return access_token
 
-    # 2) Try refresh_token flow
-    if not os.path.exists(REFRESH_TOKEN_FILE):
-        # No refresh token at all, fall back to auth_code if available
-        if FYERS_AUTH_CODE:
-            print("No refresh_token.txt found. Using FYERS_AUTH_CODE to get new tokens.")
-            return exchange_auth_code_for_tokens(FYERS_AUTH_CODE)
-        raise FileNotFoundError(
-            f"Refresh token file not found: {REFRESH_TOKEN_FILE}. "
-            "Generate a new auth_code and set FYERS_AUTH_CODE."
+    # 2) Refresh token must exist in DB
+    if not current_user.fyers_refresh_token:
+        raise RuntimeError(
+            "Fyers session expired. Please reconnect your Fyers account."
         )
 
-    with open(REFRESH_TOKEN_FILE, "r") as f:
-        refresh_token = f.read().strip()
+    refresh_token = decrypt(current_user.fyers_refresh_token)
 
     if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
-        raise Exception("FYERS_CLIENT_ID/FYERS_SECRET_KEY not set in environment.")
+        raise RuntimeError("Fyers credentials missing.")
 
-    hash_input = f"{FYERS_CLIENT_ID}{FYERS_SECRET_KEY}"
+    # Per Fyers docs
+    hash_input = f"{FYERS_CLIENT_ID}:{FYERS_SECRET_KEY}"
     appIdHash = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
 
     payload = {
@@ -126,24 +149,23 @@ def get_fyers_access_token() -> str:
     response = requests.post(FYERS_REFRESH_URL, headers=headers, json=payload)
     data = response.json()
 
-    # 2a) Refresh token invalid/expired → use auth_code if present
+    # Refresh token expired / invalid
     if data.get("code") == -501:
-        if FYERS_AUTH_CODE:
-            print("Refresh token invalid/expired (-501). Using FYERS_AUTH_CODE to get new tokens.")
-            return exchange_auth_code_for_tokens(FYERS_AUTH_CODE)
-        raise Exception(
-            " Token refresh failed: invalid/expired refresh token (-501).\n"
-            "Generate a new auth_code from Fyers login, set FYERS_AUTH_CODE, "
-            "and run again to auto-generate a new refresh_token.txt."
+        raise RuntimeError(
+            "Fyers session expired. Please reconnect your Fyers account."
         )
 
     if response.status_code != 200 or "access_token" not in data:
-        raise Exception(f" Token refresh failed: {data}")
+        raise RuntimeError(f"Fyers token refresh failed: {data}")
 
     access_token = data["access_token"]
 
+    # Cache access token
     with open(TOKEN_CACHE_FILE, "w") as f:
-        json.dump({"access_token": access_token, "timestamp": time.time()}, f)
+        json.dump(
+            {"access_token": access_token, "timestamp": time.time()},
+            f
+        )
 
     print("Fyers access token refreshed successfully.")
     return access_token
@@ -216,6 +238,9 @@ def enrich_stock_data(stock: dict) -> dict:
 
 
 def get_database(symbols=None):
+    creds = get_fyers_credentials()
+    FYERS_CLIENT_ID = creds["client_id"]
+    FYERS_SECRET_KEY = creds["secret_key"]
     access_token = get_fyers_access_token()
 
     fyers = fyersModel.FyersModel(
@@ -262,6 +287,9 @@ def get_database(symbols=None):
 def get_data(symbol):
     """Fetch single stock data with 5-min cache fallback."""
     cache_file = os.path.join(DATA_DIR, "stock_cache.json")
+    creds = get_fyers_credentials()
+    FYERS_CLIENT_ID = creds["client_id"]
+    FYERS_SECRET_KEY = creds["secret_key"]
 
     cache = {}
     if os.path.exists(cache_file):
@@ -300,8 +328,8 @@ def get_data(symbol):
 
 def search(name):
     query = name
-    yourAPIKey = os.getenv("GOOGLE_API_KEY")
-    cx = os.getenv("CX")
+    yourAPIKey = decrypt(current_user.google_api_key)
+    cx = decrypt(current_user.cx)
     response = requests.get(
         url=f"https://www.googleapis.com/customsearch/v1",
         params={
@@ -315,19 +343,18 @@ def search(name):
     return data
 
 
-def get_stock_news():
-    company_name = "INFY.BSE"
-    news_api_key = os.getenv("NEWS_API_KEY")
-
-    news_params = {
-        "q": company_name,
-        "searchIn": "title,description",
-        "language": "en",
-        "sortBy": "popularity",
-        "apiKey": news_api_key
-    }
-    response_news = requests.get(url="https://newsapi.org/v2/everything", params=news_params)
-    response_news.raise_for_status()
-    article = response_news.json()["articles"]
-    ten_articles = article[:10]
-    return ten_articles
+# def get_stock_news(company_name):
+#     news_api_key = decrypt(current_user.news_api_key)
+#
+#     news_params = {
+#         "q": company_name,
+#         "searchIn": "title,description",
+#         "language": "en",
+#         "sortBy": "popularity",
+#         "apiKey": news_api_key
+#     }
+#     response_news = requests.get(url="https://newsapi.org/v2/everything", params=news_params)
+#     response_news.raise_for_status()
+#     article = response_news.json()["articles"]
+#     ten_articles = article[:10]
+#     return ten_articles

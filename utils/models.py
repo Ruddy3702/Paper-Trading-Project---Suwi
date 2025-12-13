@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Float, DateTime, Integer
+from sqlalchemy import String, Float, DateTime, Integer, LargeBinary
 from datetime import datetime
 import uuid
 from flask_login import UserMixin
@@ -61,21 +61,22 @@ class Portfolio(db.Model):
         }
 
 class UserData(UserMixin, db.Model):
-    user: Mapped[str] = mapped_column(String(15), primary_key= True, unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(50), nullable=False)
-    fyers_client_id: Mapped[str] = mapped_column(String(50), nullable=False)
-    fyers_secret_key: Mapped[str] = mapped_column(String(50), nullable=False)
-    fyers_redirect_url: Mapped[str] = mapped_column(String(100), nullable=False)
-    google_api_key: Mapped[str] = mapped_column(String(150), nullable=False)
-    cx: Mapped[str] = mapped_column(String(150), nullable=False)
-    fyers_auth_code: Mapped[str] = mapped_column(String(600), nullable=False)
+    user: Mapped[str] = mapped_column(String(100), primary_key= True, unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(200), nullable=False)
+    fyers_client_id =  mapped_column(LargeBinary, nullable=False)
+    fyers_secret_key =  mapped_column(LargeBinary, nullable=False)
+    fyers_redirect_url =  mapped_column(LargeBinary, nullable=False)
+    fyers_auth_code = mapped_column(LargeBinary, nullable=True)
+    fyers_refresh_token = mapped_column(LargeBinary, nullable=True)
+    google_api_key =  mapped_column(LargeBinary, nullable=False)
+    cx =  mapped_column(LargeBinary, nullable=False)
 
     def get_id(self):
         return self.user
 
     def to_dict(self):
         return {
-            "user_id" : self.user_id,
+            "user" : self.user,
             "password": self.password,
             "fyers_client_id": self.fyers_client_id,
             "fyers_secret_key": self.fyers_secret_key,

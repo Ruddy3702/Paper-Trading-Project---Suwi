@@ -7,25 +7,31 @@ from wtforms.validators import InputRequired, NumberRange
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, LoginManager, login_required, current_user, logout_user
 from dotenv import load_dotenv
+from utils.api_client import get_fyers_authcode
+from utils.crypto_utils import encrypt, decrypt
+from utils.models import db
 load_dotenv()
 
 # Import your models and DB
-from utils.models import db, UserData, Transaction, Portfolio
-from utils.api_client import get_data, get_database, search
+from utils.models import db, UserData, Transaction
+from utils.api_client import get_data, get_database, search, load_user_data
 
 #        CONFIG SECTION
-# Flask secret key
-FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "aloo-banchodiya")
-
-# SQLAlchemy DB URI
-DB_URI = os.getenv("DB_URI", "sqlite:///transaction_data.db")
+# # Flask secret key
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = FLASK_SECRET_KEY
 
+# SQLAlchemy DB URI
+DB_URI = f"sqlite:///{os.path.join(app.instance_path, 'transaction_data.db')}"
+
 bootstrap = Bootstrap5(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
+
+# print("DB PATH:", os.path.abspath("transaction_data.db"))
 db.init_app(app)
+# print("INSTANCE PATH:", app.instance_path)
 
 #LOGIN CODE
 login_manager = LoginManager()
@@ -36,6 +42,10 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(UserData, str(user_id))
+
+@property
+def fyers_connected(self):
+    return self.fyers_refresh_token is not None
 
 with app.app_context():
     db.create_all()
@@ -52,9 +62,14 @@ class RegisterForm(FlaskForm):
     fyers_client_id = StringField("Fyers Client ID",validators=[InputRequired()])
     fyers_secret_key = StringField("Fyers Secret Key",validators=[InputRequired()])
     fyers_redirect_url =URLField("Fyers Redirect URL",validators=[InputRequired()])
-    fyers_auth_code = StringField("Fyers Authentication Code", validators=[InputRequired()])
     google_api_key =StringField("Google API Key",validators=[InputRequired()])
     cx = StringField("Google CX",validators=[InputRequired()])
+    submit = SubmitField("Submit")
+
+class AuthCodeForm(FlaskForm):
+    fyers_client_id = StringField("Fyers Client ID", validators=[InputRequired()])
+    fyers_secret_key = StringField("Fyers Secret Key", validators=[InputRequired()])
+    fyers_redirect_url = URLField("Fyers Redirect URL", validators=[InputRequired()])
     submit = SubmitField("Submit")
 
 # buy/sell form
@@ -105,14 +120,14 @@ def register():
             return redirect(url_for("login"))
 
         new_user = UserData(
-            user= user_id,
+            user = user_id,
             password = generate_password_hash(password=str(password), method='pbkdf2:sha256', salt_length=8),
-            fyers_client_id = generate_password_hash(password=str(request.form.get('fyers_client_id')),method='pbkdf2:sha256', salt_length=8),
-            fyers_secret_key =  generate_password_hash(password=str(request.form.get('fyers_secret_key')), method='pbkdf2:sha256',salt_length=8),
-            fyers_redirect_url = generate_password_hash(password=str(request.form.get('fyers_redirect_url')), method='pbkdf2:sha256',salt_length=8),
-            fyers_auth_code = generate_password_hash(password=str(request.form.get('fyers_auth_code')), method='pbkdf2:sha256', salt_length=8),
-            google_api_key =  generate_password_hash(password=str(request.form.get('google_api_key')), method='pbkdf2:sha256', salt_length=8),
-            cx = generate_password_hash(password=str(request.form.get('cx')), method='pbkdf2:sha256', salt_length=8)
+            fyers_client_id = encrypt(request.form.get('fyers_client_id')),
+            fyers_secret_key = encrypt(request.form.get('fyers_secret_key')),
+            fyers_redirect_url = encrypt(request.form.get('fyers_redirect_url')),
+            fyers_auth_code= None,
+            google_api_key = encrypt(request.form.get('google_api_key')),
+            cx = encrypt(request.form.get('cx')),
         )
         db.session.add(new_user)
         db.session.commit()
@@ -120,6 +135,48 @@ def register():
         login_user(new_user)
         return redirect(url_for("home"))
     return render_template('register.html', form= form)
+
+
+@app.route("/get-auth-code", methods = ["GET", "POST"])
+@login_required
+def get_auth_code():
+    fyers_client_id = decrypt(current_user.fyers_client_id)
+    fyers_secret_key = decrypt(current_user.fyers_secret_key)
+    fyers_redirect_url =decrypt(current_user.fyers_redirect_url)
+    auth_link = get_fyers_authcode(client_id= fyers_client_id,
+                                   secret_key= fyers_secret_key,
+                                   redirect_uri= fyers_redirect_url)
+    flash(f"<a href= {auth_link}>Click Here For Auth Code</a>",'success')
+    return redirect(url_for('home'))
+    # return render_template('make_auth_code.html', form = form)
+
+
+@app.route("/fyers/callback")
+@login_required
+def fyers_callback():
+    auth_code = request.args.get("auth_code")
+
+    if not auth_code:
+        flash("Fyers login failed.", "danger")
+        return redirect(url_for("home"))
+
+    #save auth code temporarily
+    current_user.fyers_auth_code = encrypt(auth_code)
+    db.session.commit()
+
+    #IMMEDIATELY exchange it for tokens
+    from utils.api_client import exchange_auth_code_for_tokens
+    exchange_auth_code_for_tokens(auth_code)
+
+    flash("Fyers connected successfully.", "success")
+    return redirect(url_for("home"))
+
+
+@app.route("/reconnect-fyers")
+@login_required
+def reconnect_fyers():
+    flash("Your Fyers session expired. Please reconnect.", "warning")
+    return redirect(url_for("get_auth_code"))
 
 
 @app.route("/logout", methods = ["GET", "POST"])
@@ -132,6 +189,7 @@ def logout():
 @app.route("/", methods = ["GET", "POST"])
 @login_required
 def home():
+    load_user_data(current_user)
     return render_template("index.html", logged_in= current_user.is_authenticated)
 
 
@@ -158,7 +216,8 @@ def database():
 @login_required
 def stock_info(symbol):
     data = get_data(symbol)
-    return render_template("stock.html", stock=data, logged_in= current_user.is_authenticated)
+    articles = search(symbol)
+    return render_template("stock.html", stock=data, logged_in= current_user.is_authenticated, latest_news = articles)
 
 
 @app.route("/buy/<symbol>", methods=["POST", "GET"])
