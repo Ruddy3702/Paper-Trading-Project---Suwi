@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Float, DateTime, Integer, LargeBinary
+from sqlalchemy import String, Float, DateTime, Integer, LargeBinary, Numeric, Enum, ForeignKey
 from datetime import datetime
 import uuid
 from flask_login import UserMixin
@@ -14,13 +14,13 @@ db = SQLAlchemy(model_class= Base)
 
 class Transaction(db.Model):
     txn_id: Mapped[str] = mapped_column(String(40), primary_key=True, unique= True, default=lambda: str(uuid.uuid4()))
-    user_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    user_id = mapped_column(String(100), ForeignKey("user_data.user"),nullable=False)
     symbol: Mapped[str] = mapped_column(String(15), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
-    type: Mapped[str] = mapped_column(String(4), nullable=False)  # BUY/SELL
-    quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    cost_price: Mapped[float] = mapped_column(Float, nullable=False)
-    total_value: Mapped[float] = mapped_column(Float)
+    type = mapped_column(Enum("BUY", "SELL", name="txn_type"), nullable=False)
+    quantity = mapped_column(Numeric(12, 4), nullable=False)
+    execution_price = mapped_column(Numeric(12, 2), nullable=False)
+    total_value = mapped_column(Numeric(14, 2), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     remarks: Mapped[str] = mapped_column(String(255))
 
@@ -31,34 +31,34 @@ class Transaction(db.Model):
             "symbol": self.symbol,
             "type": self.type,
             "quantity": self.quantity,
-            "cost_price": self.cost_price,
+            "execution_price": self.execution_price,
             "total_value": round(self.total_value, 2),
             "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             "remarks": self.remarks or "NA",
         }
 
-class Portfolio(db.Model):
-    user_id: Mapped[str] = mapped_column(String(40), nullable=False)
-    symbol: Mapped[str] = mapped_column(String(15), primary_key=True, unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(50), nullable=False)
-    quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    avg_price: Mapped[float] = mapped_column(Float, nullable=False)
-    market_price: Mapped[float] = mapped_column(Float)
-    total_value: Mapped[float] = mapped_column(Float)
-    unrealized_pnl: Mapped[float] = mapped_column(Float)
-    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
-
-    def to_dict(self):
-        return {
-            "user_id" : self.user_id,
-            "symbol": self.symbol,
-            "type": self.type,
-            "quantity": self.quantity,
-            "cost_price": self.avg_price,
-            "total_value": round(self.total_value, 2),
-            "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            "remarks": self.remarks or "NA",
-        }
+# class Portfolio(db.Model):
+#     user_id: Mapped[str] = mapped_column(String(40), nullable=False)
+#     symbol: Mapped[str] = mapped_column(String(15), primary_key=True, unique=True, nullable=False)
+#     name: Mapped[str] = mapped_column(String(50), nullable=False)
+#     quantity: Mapped[float] = mapped_column(Float, nullable=False)
+#     avg_price: Mapped[float] = mapped_column(Float, nullable=False)
+#     market_price: Mapped[float] = mapped_column(Float)
+#     total_value: Mapped[float] = mapped_column(Float)
+#     unrealized_pnl: Mapped[float] = mapped_column(Float)
+#     last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+#
+#     def to_dict(self):
+#         return {
+#             "user_id" : self.user_id,
+#             "symbol": self.symbol,
+#             "type": self.type,
+#             "quantity": self.quantity,
+#             "cost_price": self.avg_price,
+#             "total_value": round(self.total_value, 2),
+#             "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+#             "remarks": self.remarks or "NA",
+#         }
 
 class UserData(UserMixin, db.Model):
     user: Mapped[str] = mapped_column(String(100), primary_key= True, unique=True, nullable=False)
@@ -70,6 +70,8 @@ class UserData(UserMixin, db.Model):
     fyers_refresh_token = mapped_column(LargeBinary, nullable=True)
     google_api_key =  mapped_column(LargeBinary, nullable=False)
     cx =  mapped_column(LargeBinary, nullable=False)
+    email = mapped_column(LargeBinary, unique=True, nullable=False)
+    balance = mapped_column(Numeric(12, 2), default=100000)
 
     def get_id(self):
         return self.user
@@ -84,4 +86,10 @@ class UserData(UserMixin, db.Model):
             "google_api_key": self.google_api_key,
             "cx": self.cx,
             "fyers_auth_code": self.fyers_auth_code,
+            "email" : self.email,
+            "balance" : self.balance
         }
+
+    @property
+    def fyers_connected(self):
+        return self.fyers_refresh_token is not None

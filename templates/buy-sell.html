@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% from 'bootstrap5/form.html' import render_form %}
-{% block title %}Sell Stock{% endblock %}
+
+
+{% block title %}{{action.title()}} Stock{% endblock %}
 
 {% block content %}
 <div class="container py-5 px-5">
     <div class="p-5 mb-4 bg-body-tertiary rounded-3">
         <div class="container-fluid py-5">
-            <h1 class="display-5 fw-bold">SELL: {{ stock['v']['name'] }}<h3>{{ stock['v']['symbol'] }}</h3></h1>
+            <h1 class="display-5 fw-bold">{{action}}: {{ stock['v']['name'] }}<h3>{{ stock['v']['symbol'] }}</h3></h1>
             <h2>Holdings: { insert stock amt }</h2>
+            <h3>Balance: Rs. {{balance}}</h3>
         </div>
         <p>Price: {{ stock['v']['lp'] }} </p>
         {{ render_form(form) }}

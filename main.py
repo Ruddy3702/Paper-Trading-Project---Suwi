@@ -7,9 +7,9 @@ from wtforms.validators import InputRequired, NumberRange
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, LoginManager, login_required, current_user, logout_user
 from dotenv import load_dotenv
-from utils.api_client import get_fyers_authcode
+from utils.api_client import get_auth_code
 from utils.crypto_utils import encrypt, decrypt
-from utils.models import db
+from decimal import Decimal
 load_dotenv()
 
 # Import your models and DB
@@ -43,10 +43,6 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return db.session.get(UserData, str(user_id))
 
-@property
-def fyers_connected(self):
-    return self.fyers_refresh_token is not None
-
 with app.app_context():
     db.create_all()
 
@@ -59,11 +55,13 @@ class LoginForm(FlaskForm):
 class RegisterForm(FlaskForm):
     user = StringField("Username", validators=[InputRequired()])
     password = PasswordField("Password", validators=[InputRequired()])
+    email = StringField("Email", validators=[InputRequired()])
     fyers_client_id = StringField("Fyers Client ID",validators=[InputRequired()])
     fyers_secret_key = StringField("Fyers Secret Key",validators=[InputRequired()])
     fyers_redirect_url =URLField("Fyers Redirect URL",validators=[InputRequired()])
     google_api_key =StringField("Google API Key",validators=[InputRequired()])
     cx = StringField("Google CX",validators=[InputRequired()])
+    balance = StringField("Starting Balance", validators=[InputRequired()])
     submit = SubmitField("Submit")
 
 class AuthCodeForm(FlaskForm):
@@ -118,16 +116,24 @@ def register():
         if existing_user:
             print("You already have an account")
             return redirect(url_for("login"))
-
+        try:
+            balance = Decimal(request.form.get('balance'))
+            if balance <= 0:
+                raise ValueError
+        except:
+            flash("Invalid starting balance")
+            return redirect(url_for("register"))
         new_user = UserData(
             user = user_id,
             password = generate_password_hash(password=str(password), method='pbkdf2:sha256', salt_length=8),
+            email = encrypt(request.form.get('email')),
             fyers_client_id = encrypt(request.form.get('fyers_client_id')),
             fyers_secret_key = encrypt(request.form.get('fyers_secret_key')),
             fyers_redirect_url = encrypt(request.form.get('fyers_redirect_url')),
             fyers_auth_code= None,
             google_api_key = encrypt(request.form.get('google_api_key')),
             cx = encrypt(request.form.get('cx')),
+            balance = balance,
         )
         db.session.add(new_user)
         db.session.commit()
@@ -139,13 +145,8 @@ def register():
 
 @app.route("/get-auth-code", methods = ["GET", "POST"])
 @login_required
-def get_auth_code():
-    fyers_client_id = decrypt(current_user.fyers_client_id)
-    fyers_secret_key = decrypt(current_user.fyers_secret_key)
-    fyers_redirect_url =decrypt(current_user.fyers_redirect_url)
-    auth_link = get_fyers_authcode(client_id= fyers_client_id,
-                                   secret_key= fyers_secret_key,
-                                   redirect_uri= fyers_redirect_url)
+def get_code():
+    auth_link = get_auth_code()
     flash(f"<a href= {auth_link}>Click Here For Auth Code</a>",'success')
     return redirect(url_for('home'))
     # return render_template('make_auth_code.html', form = form)
@@ -172,13 +173,6 @@ def fyers_callback():
     return redirect(url_for("home"))
 
 
-@app.route("/reconnect-fyers")
-@login_required
-def reconnect_fyers():
-    flash("Your Fyers session expired. Please reconnect.", "warning")
-    return redirect(url_for("get_auth_code"))
-
-
 @app.route("/logout", methods = ["GET", "POST"])
 @login_required
 def logout():
@@ -200,6 +194,10 @@ def database():
     order = request.args.get("order", "desc")  # default descending
     data = get_database()
 
+    if not data:
+        flash(f"Please connect Fyers first")
+        return redirect(url_for("get_code"))
+
     if sort_by:
         reverse = True if order == "desc" else False
 
@@ -217,7 +215,10 @@ def database():
 def stock_info(symbol):
     data = get_data(symbol)
     articles = search(symbol)
-    return render_template("stock.html", stock=data, logged_in= current_user.is_authenticated, latest_news = articles)
+    news_data = search(symbol)["items"]
+    return render_template("stock.html", stock=data,
+                           logged_in= current_user.is_authenticated,
+                           latest_news = articles, news_data = news_data)
 
 
 @app.route("/buy/<symbol>", methods=["POST", "GET"])
@@ -225,23 +226,30 @@ def stock_info(symbol):
 def buy(symbol):
     form = BuySellForm()
     data = get_data(symbol)
-    qty = form.quantity.data
-    ltp = data["v"]["lp"]
-    if request.method == "POST":
+    if request.method == "POST" and form.validate():
+        qty = form.quantity.data
+        ltp = Decimal(str(data["v"]["lp"]))
+        txn_val = qty * ltp
+        if txn_val > current_user.balance:
+            flash(f"Your balance is not enough for this transaction", "error")
+            return redirect(url_for("buy", symbol =symbol))
         new_transaction = Transaction(
             user_id = current_user.user,
             symbol=symbol,
             name=data["v"]["name"],
             type="BUY",
-            quantity=float(qty),
-            cost_price=ltp,
-            total_value=float(qty) * float(ltp),
+            quantity=qty,
+            execution_price=ltp,
+            total_value=txn_val,
             remarks=form.remarks.data,
         )
+
+        current_user.balance -= txn_val
         db.session.add(new_transaction)
         db.session.commit()
-        return redirect(url_for("transactions"))
-    return render_template("buy.html", stock=data, form=form, logged_in= current_user.is_authenticated)
+        return redirect(url_for("database"))
+    return render_template("buy-sell.html", balance = current_user.balance, stock=data, form=form,
+                           logged_in= current_user.is_authenticated, action="BUY")
 
 
 @app.route("/sell/<symbol>", methods=["GET", "POST"])
@@ -249,23 +257,35 @@ def buy(symbol):
 def sell(symbol):
     form = BuySellForm()
     data = get_data(symbol)
-    qty = form.quantity.data
-    ltp = data["v"]["lp"]
-    if request.method == "POST":
+
+    if request.method == "POST" and form.validate():
+        qty = form.quantity.data
+        ltp = Decimal(str(data["v"]["lp"]))
+        txn_val = qty * ltp
+        portfolio = calculate_portfolio()
+        position = next((p for p in portfolio if p["symbol"] == symbol), None)
+
+        if not position or position["quantity"] < qty:
+            flash("You do not have enough quantity to sell.")
+            return redirect(url_for("sell", symbol=symbol))
+
         new_transaction = Transaction(
             user_id= current_user.user,
             symbol=symbol,
             name=data["v"]["name"],
             type="SELL",
-            quantity=float(qty),
-            cost_price=ltp,
-            total_value=float(qty) * float(ltp),
+            quantity=qty,
+            execution_price=ltp,
+            total_value=txn_val,
             remarks=form.remarks.data,
         )
+        current_user.balance += txn_val
         db.session.add(new_transaction)
         db.session.commit()
-        return redirect(url_for("transactions"))
-    return render_template("sell.html", stock=data, form=form, logged_in= current_user.is_authenticated)
+
+        return redirect(url_for("database"))
+    return render_template("buy-sell.html", balance = current_user.balance, stock=data, form=form,
+                           logged_in= current_user.is_authenticated, action="SELL")
 
 
 @app.route("/news", methods=["GET", "POST"])
@@ -295,11 +315,11 @@ def transactions():
                 "symbol": tx.symbol,
                 "type": tx.type,
                 "quantity": tx.quantity,
-                "cost_price": tx.cost_price,
+                "execution_price": tx.execution_price,
                 "total_value": tx.total_value,
                 "timestamp": tx.timestamp,
                 "remarks": tx.remarks,
-                "pnl": round(pnl, 2),
+                "pnl": pnl,
                 "current_price": stock_data["v"]["lp"],
             }
         )
@@ -309,7 +329,66 @@ def transactions():
 @app.route("/portfolio")
 @login_required
 def portfolio():
-    return render_template("portfolio.html", logged_in= current_user.is_authenticated)
+    final_portfolio = calculate_portfolio()
+    return render_template("portfolio.html",
+                           logged_in= current_user.is_authenticated, data=final_portfolio)
+
+
+def calculate_portfolio():
+    results = db.session.execute(
+        db.select(Transaction)
+        .where(Transaction.user_id == current_user.user)
+    ).scalars()
+
+    portfolio = {}
+
+    for tx in results:
+        symbol = tx.symbol
+
+        if symbol not in portfolio:
+            portfolio[symbol] = {
+                "symbol": symbol,
+                "name": tx.name,
+                "quantity": Decimal("0"),
+                "total_cost": Decimal("0"),
+            }
+
+        if tx.type == "BUY":
+            portfolio[symbol]["quantity"] += tx.quantity
+            portfolio[symbol]["total_cost"] += tx.quantity * tx.execution_price
+
+
+        elif tx.type == "SELL":
+
+            avg_cost = portfolio[symbol]["total_cost"] / portfolio[symbol]["quantity"]
+            portfolio[symbol]["quantity"] -= tx.quantity
+            portfolio[symbol]["total_cost"] -= tx.quantity * avg_cost
+
+    final_portfolio = []
+
+    for symbol, data in portfolio.items():
+        if data["quantity"] <= 0:
+            continue  # skip fully sold positions
+
+        stock_data = get_data(symbol)
+        ltp = stock_data["v"]["lp"]
+
+        avg_price = data["total_cost"] / data["quantity"]
+        market_value = data["quantity"] * Decimal(str(ltp))
+        pnl = market_value - data["total_cost"]
+
+        final_portfolio.append({
+            "symbol": symbol,
+            "name": data["name"],
+            "quantity": round(data["quantity"], 2),
+            "avg_price": round(avg_price, 2),
+            "ltp": ltp,
+            "market_value": round(market_value, 2),
+            "pnl": round(pnl, 2),
+        })
+    return final_portfolio
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+

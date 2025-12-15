@@ -91,6 +91,16 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
 #   ACCESS TOKEN HANDLER
 # =========================
 
+def get_auth_code():
+    fyers_client_id = decrypt(current_user.fyers_client_id)
+    fyers_secret_key = decrypt(current_user.fyers_secret_key)
+    fyers_redirect_url =decrypt(current_user.fyers_redirect_url)
+    auth_link = get_fyers_authcode(client_id= fyers_client_id,
+                                   secret_key= fyers_secret_key,
+                                   redirect_uri= fyers_redirect_url)
+    return auth_link
+
+
 def get_fyers_authcode(*, client_id, secret_key, redirect_uri):
     session = fyersModel.SessionModel(
         client_id=client_id,
