@@ -4,6 +4,7 @@
 {% block content %}
 <div class="container py-3 my-3">
   <h2 class="pb-4">Transaction History</h2>
+    <h4>Available Funds: Rs. {{current_user.balance}}</h4>
 <div class="table-responsive">
   <table class="table table-hover table-striped align-middle table-sm">
         <thead class="table-dark sticky-top">
@@ -25,7 +26,7 @@
           {% for tx in data %}
           <tr>
             <td class="text-center">
-              {{tx["timestamp"]}}
+              {{ tx["timestamp"].strftime("%d/%m/%Y")}}
             </td>
             <td class="text-center">
               {{tx["txn_id"]}}
@@ -38,10 +39,10 @@
               {{tx["type"]}}
             </td>
             <td class="text-center">
-              {{tx["quantity"]}}
+              {{"%.2f"|format(tx["quantity"])}}
             </td>
             <td class="text-center">
-              {{tx["cost_price"]}}
+              {{tx["execution_price"]}}
             </td>
               <td class="text-center">
                   {{tx["current_price"]}}

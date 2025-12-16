@@ -23,6 +23,7 @@ class Transaction(db.Model):
     total_value = mapped_column(Numeric(14, 2), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     remarks: Mapped[str] = mapped_column(String(255))
+    realised_pnl = mapped_column(Numeric(14, 2), nullable=True)
 
     def to_dict(self):
         return {
@@ -35,6 +36,7 @@ class Transaction(db.Model):
             "total_value": round(self.total_value, 2),
             "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             "remarks": self.remarks or "NA",
+            "realised_pnl" : self.realised_pnl,
         }
 
 # class Portfolio(db.Model):
@@ -66,7 +68,6 @@ class UserData(UserMixin, db.Model):
     fyers_client_id =  mapped_column(LargeBinary, nullable=False)
     fyers_secret_key =  mapped_column(LargeBinary, nullable=False)
     fyers_redirect_url =  mapped_column(LargeBinary, nullable=False)
-    fyers_auth_code = mapped_column(LargeBinary, nullable=True)
     fyers_refresh_token = mapped_column(LargeBinary, nullable=True)
     google_api_key =  mapped_column(LargeBinary, nullable=False)
     cx =  mapped_column(LargeBinary, nullable=False)

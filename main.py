@@ -1,20 +1,16 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_wtf import FlaskForm
 from wtforms import DecimalField, SubmitField, StringField, URLField, PasswordField
 from flask_bootstrap import Bootstrap5
 from wtforms.validators import InputRequired, NumberRange
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, LoginManager, login_required, current_user, logout_user
-from dotenv import load_dotenv
-from utils.api_client import get_auth_code
-from utils.crypto_utils import encrypt, decrypt
 from decimal import Decimal
-load_dotenv()
-
-# Import your models and DB
 from utils.models import db, UserData, Transaction
-from utils.api_client import get_data, get_database, search, load_user_data
+from utils.stock_utils import get_data, get_database, search, calculate_portfolio, get_price, get_historic_data
+from utils.api_client import load_user_data, get_auth_code, exchange_auth_code_for_tokens
+from utils.crypto_utils import encrypt
 
 #        CONFIG SECTION
 # # Flask secret key
@@ -70,7 +66,6 @@ class AuthCodeForm(FlaskForm):
     fyers_redirect_url = URLField("Fyers Redirect URL", validators=[InputRequired()])
     submit = SubmitField("Submit")
 
-# buy/sell form
 class BuySellForm(FlaskForm):
     quantity = DecimalField("Quantity", validators=[InputRequired(), NumberRange(min=1)], places=2)
     remarks = StringField("Remarks")
@@ -130,7 +125,6 @@ def register():
             fyers_client_id = encrypt(request.form.get('fyers_client_id')),
             fyers_secret_key = encrypt(request.form.get('fyers_secret_key')),
             fyers_redirect_url = encrypt(request.form.get('fyers_redirect_url')),
-            fyers_auth_code= None,
             google_api_key = encrypt(request.form.get('google_api_key')),
             cx = encrypt(request.form.get('cx')),
             balance = balance,
@@ -156,18 +150,12 @@ def get_code():
 @login_required
 def fyers_callback():
     auth_code = request.args.get("auth_code")
-
     if not auth_code:
         flash("Fyers login failed.", "danger")
         return redirect(url_for("home"))
 
-    #save auth code temporarily
-    current_user.fyers_auth_code = encrypt(auth_code)
-    db.session.commit()
-
-    #IMMEDIATELY exchange it for tokens
-    from utils.api_client import exchange_auth_code_for_tokens
     exchange_auth_code_for_tokens(auth_code)
+    login_user(current_user)
 
     flash("Fyers connected successfully.", "success")
     return redirect(url_for("home"))
@@ -216,9 +204,12 @@ def stock_info(symbol):
     data = get_data(symbol)
     articles = search(symbol)
     news_data = search(symbol)["items"]
+
+    historic_data = get_historic_data(symbol, "1M")["candles"]
+
     return render_template("stock.html", stock=data,
                            logged_in= current_user.is_authenticated,
-                           latest_news = articles, news_data = news_data)
+                           latest_news = articles, news_data = news_data, candles= historic_data)
 
 
 @app.route("/buy/<symbol>", methods=["POST", "GET"])
@@ -259,15 +250,21 @@ def sell(symbol):
     data = get_data(symbol)
 
     if request.method == "POST" and form.validate():
-        qty = form.quantity.data
+        qty = Decimal(str(form.quantity.data))
         ltp = Decimal(str(data["v"]["lp"]))
+
+        if ltp == 0 or ltp == None:
+            flash("Invalid quantity", "danger")
+            return redirect(url_for("sell", symbol=symbol))
+
         txn_val = qty * ltp
         portfolio = calculate_portfolio()
         position = next((p for p in portfolio if p["symbol"] == symbol), None)
-
         if not position or position["quantity"] < qty:
             flash("You do not have enough quantity to sell.")
             return redirect(url_for("sell", symbol=symbol))
+        avg_cost = Decimal(position["avg_price"])
+        realized_pnl = (ltp - avg_cost) * qty
 
         new_transaction = Transaction(
             user_id= current_user.user,
@@ -277,12 +274,12 @@ def sell(symbol):
             quantity=qty,
             execution_price=ltp,
             total_value=txn_val,
+            realized_pnl=realized_pnl,
             remarks=form.remarks.data,
         )
         current_user.balance += txn_val
         db.session.add(new_transaction)
         db.session.commit()
-
         return redirect(url_for("database"))
     return render_template("buy-sell.html", balance = current_user.balance, stock=data, form=form,
                            logged_in= current_user.is_authenticated, action="SELL")
@@ -302,13 +299,11 @@ def get_news():
 @app.route("/transactions")
 @login_required
 def transactions():
-    results = db.session.execute(db.select(Transaction).where(Transaction.user_id == current_user.user)).scalars()                         #--------------------------------------
-    # results = Transaction.query.all()
+    results = db.session.execute(db.select(Transaction).where(Transaction.user_id == current_user.user)).scalars()
     transaction_data = []
     for tx in results:
-        stock_data = get_data(tx.symbol)
-        current_price = stock_data["v"]["lp"]
-        pnl = (tx.quantity * current_price) - tx.total_value
+        current_price = get_price(tx.symbol)
+        pnl = tx.realized_pnl if tx.type == "SELL" else None
         transaction_data.append(
             {
                 "txn_id": tx.txn_id,
@@ -320,7 +315,7 @@ def transactions():
                 "timestamp": tx.timestamp,
                 "remarks": tx.remarks,
                 "pnl": pnl,
-                "current_price": stock_data["v"]["lp"],
+                "current_price": current_price,
             }
         )
     return render_template("transactions.html", data=transaction_data, logged_in= current_user.is_authenticated)
@@ -334,59 +329,17 @@ def portfolio():
                            logged_in= current_user.is_authenticated, data=final_portfolio)
 
 
-def calculate_portfolio():
-    results = db.session.execute(
-        db.select(Transaction)
-        .where(Transaction.user_id == current_user.user)
-    ).scalars()
+@app.route("/candles/<symbol>")
+@login_required
+def candles(symbol):
+    range_key = request.args.get("range", "1M")
+    data = get_historic_data(symbol, range_key)
+    if not data or data.get("s") != "ok":
+        print("FYERS ERROR:", data)
+        return jsonify([]), 200   # return empty data safely
 
-    portfolio = {}
+    return jsonify(data.get("candles", []))
 
-    for tx in results:
-        symbol = tx.symbol
-
-        if symbol not in portfolio:
-            portfolio[symbol] = {
-                "symbol": symbol,
-                "name": tx.name,
-                "quantity": Decimal("0"),
-                "total_cost": Decimal("0"),
-            }
-
-        if tx.type == "BUY":
-            portfolio[symbol]["quantity"] += tx.quantity
-            portfolio[symbol]["total_cost"] += tx.quantity * tx.execution_price
-
-
-        elif tx.type == "SELL":
-
-            avg_cost = portfolio[symbol]["total_cost"] / portfolio[symbol]["quantity"]
-            portfolio[symbol]["quantity"] -= tx.quantity
-            portfolio[symbol]["total_cost"] -= tx.quantity * avg_cost
-
-    final_portfolio = []
-
-    for symbol, data in portfolio.items():
-        if data["quantity"] <= 0:
-            continue  # skip fully sold positions
-
-        stock_data = get_data(symbol)
-        ltp = stock_data["v"]["lp"]
-
-        avg_price = data["total_cost"] / data["quantity"]
-        market_value = data["quantity"] * Decimal(str(ltp))
-        pnl = market_value - data["total_cost"]
-
-        final_portfolio.append({
-            "symbol": symbol,
-            "name": data["name"],
-            "quantity": round(data["quantity"], 2),
-            "avg_price": round(avg_price, 2),
-            "ltp": ltp,
-            "market_value": round(market_value, 2),
-            "pnl": round(pnl, 2),
-        })
-    return final_portfolio
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
