@@ -119,41 +119,85 @@
 <script>
 let chart;
 let candleSeries;
+let loading = false;
 
 document.addEventListener("DOMContentLoaded", function () {
-    const rawCandles = {{ candles | tojson }};
-    const candleData = rawCandles.map(c => ({
-        time: c[0], open: c[1], high: c[2], low: c[3], close: c[4]
-    }));
 
+    const rawCandles = {{ candles | tojson }};
     const container = document.getElementById("chart");
 
     chart = LightweightCharts.createChart(container, {
         width: container.clientWidth,
-        height: 360,
-        layout: { background: { color: "#ffffff" }, textColor: "#000000" },
-        grid: { vertLines: { visible: false }, horzLines: { visible: false } }
+        height: window.innerWidth < 768 ? 280 : 420,
+        layout: {
+            background: { color: "#ffffff" },
+            textColor: "#000000"
+        },
+        grid: {
+            vertLines: { visible: false },
+            horzLines: { visible: false }
+        }
     });
 
-    candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries);
-    candleSeries.setData(candleData);
+    candleSeries = chart.addSeries(
+        LightweightCharts.CandlestickSeries
+    );
+
+    if (rawCandles && rawCandles.length) {
+        candleSeries.setData(
+            rawCandles.map(c => ({
+                time: c[0],
+                open: c[1],
+                high: c[2],
+                low: c[3],
+                close: c[4]
+            }))
+        );
+        chart.timeScale().fitContent();
+    }
 
     window.addEventListener("resize", () => {
-        chart.applyOptions({ width: container.clientWidth });
+        chart.applyOptions({
+            width: container.clientWidth,
+            height: window.innerWidth < 768 ? 280 : 420
+        });
     });
 });
-</script>
 
-<script>
 async function loadRange(range) {
-    const symbol = "{{ stock['v']['symbol'] }}";
-    const res = await fetch(`/candles/${symbol}?range=${range}`);
-    const data = await res.json();
-    if (!data || !data.length) return;
+    if (loading) return;
+    loading = true;
 
-    candleSeries.setData(
-      data.map(c => ({ time: c[0], open: c[1], high: c[2], low: c[3], close: c[4] }))
-    );
+    const symbol = "{{ stock['v']['symbol'] }}";
+
+    try {
+        const res = await fetch(`/candles/${symbol}?range=${range}`);
+        const json = await res.json();
+
+        const candles = json.candles || [];
+
+        if (!candles.length) {
+            console.warn("No candle data for range:", range);
+            return;
+        }
+
+        candleSeries.setData(
+            candles.map(c => ({
+                time: c[0],
+                open: c[1],
+                high: c[2],
+                low: c[3],
+                close: c[4]
+            }))
+        );
+
+        chart.timeScale().fitContent();
+
+    } catch (err) {
+        console.error("Chart update failed:", err);
+    } finally {
+        loading = false;
+    }
 }
 </script>
 

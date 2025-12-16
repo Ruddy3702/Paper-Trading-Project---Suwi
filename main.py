@@ -357,11 +357,13 @@ def portfolio():
 def candles(symbol):
     range_key = request.args.get("range", "1M")
     data = get_historic_data(symbol, range_key)
-    if not data or data.get("s") != "ok":
-        print("FYERS ERROR:", data)
-        return jsonify([]), 200   # return empty data safely
 
-    return jsonify(data.get("candles", []))
+    if not data or data.get("s") != "ok":
+        return jsonify({"candles": []}), 200
+
+    return jsonify({
+        "candles": data.get("candles", [])
+    }), 200
 
 
 if __name__ == "__main__":
