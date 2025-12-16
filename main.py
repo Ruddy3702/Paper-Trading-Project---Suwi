@@ -149,13 +149,20 @@ def get_code():
 @login_required
 def fyers_callback():
     auth_code = request.args.get("auth_code")
+
     if not auth_code:
-        flash("Fyers login failed.", "danger")
+        flash("Fyers login failed: auth code missing.", "danger")
         return redirect(url_for("home"))
+    access_token = exchange_auth_code_for_tokens(auth_code)
 
-    exchange_auth_code_for_tokens(auth_code)
-    login_user(current_user)
+    if not access_token:
+        flash(
+            "Fyers connection failed. Please reconnect your account.",
+            "danger"
+        )
+        return redirect(url_for("get_code"))
 
+    # Token saved successfully
     flash("Fyers connected successfully.", "success")
     return redirect(url_for("home"))
 

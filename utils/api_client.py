@@ -3,6 +3,7 @@ import requests, os, hashlib, time, json
 from utils.models import UserData, db
 from utils.crypto_utils import decrypt, encrypt
 from flask_login import current_user
+from flask import url_for
 
 PIN = os.getenv("PIN","1234")
 FYERS_REFRESH_URL = "https://api-t1.fyers.in/api/v3/validate-refresh-token"
@@ -23,7 +24,6 @@ def get_fyers_credentials():
     return {
         "client_id": decrypt(current_user.fyers_client_id),
         "secret_key": decrypt(current_user.fyers_secret_key),
-        "fyers_redirect_url": decrypt(current_user.fyers_redirect_url),
     }
 
 
@@ -60,12 +60,18 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
     data = resp.json()
 
     if resp.status_code != 200 or "access_token" not in data:
+        print("FYERS AUTH FAILED:", data)
         return None
 
     access_token = data["access_token"]
     refresh_token = data.get("refresh_token")
 
     current_user.fyers_refresh_token = encrypt(refresh_token)
+
+    if not refresh_token:
+        print("FYERS RESPONSE MISSING REFRESH TOKEN:", data)
+        return None
+
     current_user.fyers_auth_code = None
     db.session.commit()
 
@@ -80,10 +86,16 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
 def get_auth_code():
     fyers_client_id = decrypt(current_user.fyers_client_id)
     fyers_secret_key = decrypt(current_user.fyers_secret_key)
-    fyers_redirect_url =decrypt(current_user.fyers_redirect_url)
-    auth_link = get_fyers_authcode(client_id= fyers_client_id,
-                                   secret_key= fyers_secret_key,
-                                   redirect_uri= fyers_redirect_url)
+    redirect_uri = url_for(
+        "fyers_callback",
+        _external=True,
+        _scheme="https"
+    )
+    auth_link = get_fyers_authcode(
+        client_id=fyers_client_id,
+        secret_key=fyers_secret_key,
+        redirect_uri=redirect_uri
+    )
     return auth_link
 
 
@@ -102,7 +114,7 @@ def get_fyers_access_token():
     Returns:
         access_token (str) if valid
         None if user must re-auth
-    Never raises RuntimeError.
+    Safe for Render. Never raises.
     """
 
     if not current_user.is_authenticated:
@@ -111,14 +123,35 @@ def get_fyers_access_token():
     if not current_user.fyers_refresh_token:
         return None
 
+    # Reuse cached access token if still valid (12 hours)
+    if os.path.exists(TOKEN_CACHE_FILE):
+        try:
+            with open(TOKEN_CACHE_FILE, "r") as f:
+                cache = json.load(f)
+
+            access_token = cache.get("access_token")
+            timestamp = cache.get("timestamp", 0)
+
+            if access_token and (time.time() - timestamp) < 43200:
+                return access_token
+        except Exception:
+            pass  # ignore corrupt cache
+
+    # Refresh token flow
     creds = get_fyers_credentials()
+    if not creds:
+        return None
+
     FYERS_CLIENT_ID = creds["client_id"]
     FYERS_SECRET_KEY = creds["secret_key"]
 
     if not FYERS_CLIENT_ID or not FYERS_SECRET_KEY:
         return None
 
-    refresh_token = decrypt(current_user.fyers_refresh_token)
+    try:
+        refresh_token = decrypt(current_user.fyers_refresh_token)
+    except Exception:
+        return None
 
     hash_input = f"{FYERS_CLIENT_ID}:{FYERS_SECRET_KEY}"
     appIdHash = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
@@ -131,15 +164,15 @@ def get_fyers_access_token():
     }
 
     headers = {"Content-Type": "application/json"}
-    response = requests.post(FYERS_REFRESH_URL, headers=headers, json=payload)
 
     try:
+        response = requests.post(FYERS_REFRESH_URL, headers=headers, json=payload, timeout=10)
         data = response.json()
     except Exception:
         return None
 
+    #  Refresh token expired → force reconnect
     if data.get("code") == -501:
-        # Refresh token expired → force reconnect
         current_user.fyers_refresh_token = None
         db.session.commit()
         return None
@@ -147,5 +180,18 @@ def get_fyers_access_token():
     if response.status_code != 200 or "access_token" not in data:
         return None
 
-    return data["access_token"]
+    access_token = data["access_token"]
+
+    #  Cache access token
+    try:
+        with open(TOKEN_CACHE_FILE, "w") as f:
+            json.dump(
+                {"access_token": access_token, "timestamp": time.time()},
+                f
+            )
+    except Exception:
+        pass  # cache failure should not break app
+
+    return access_token
+
 
