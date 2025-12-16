@@ -127,7 +127,6 @@ def register():
             email = encrypt(request.form.get('email')),
             fyers_client_id = encrypt(request.form.get('fyers_client_id')),
             fyers_secret_key = encrypt(request.form.get('fyers_secret_key')),
-            fyers_redirect_url = os.getenv("FYERS_REDIRECT_URL"),
             google_api_key = encrypt(request.form.get('google_api_key')),
             cx = encrypt(request.form.get('cx')),
             balance = balance,
