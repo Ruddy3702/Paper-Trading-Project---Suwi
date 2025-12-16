@@ -3,86 +3,114 @@
 
 {% block styling %}
 {{ super() }}
-  <style>.bd-placeholder-img{font-size:1.125rem;text-anchor:middle;-webkit-user-select:none;-moz-user-select:none;user-select:none}@media (min-width: 768px){.bd-placeholder-img-lg{font-size:3.5rem}}.b-example-divider{width:100%;height:3rem;background-color:#0000001a;border:solid rgba(0,0,0,.15);border-width:1px 0;box-shadow:inset 0 .5em 1.5em #0000001a,inset 0 .125em .5em #00000026}.b-example-vr{flex-shrink:0;width:1.5rem;height:100vh}.bi{vertical-align:-.125em;fill:currentColor}.nav-scroller{position:relative;z-index:2;height:2.75rem;overflow-y:hidden}.nav-scroller .nav{display:flex;flex-wrap:nowrap;padding-bottom:1rem;margin-top:-1px;overflow-x:auto;text-align:center;white-space:nowrap;-webkit-overflow-scrolling:touch}.btn-bd-primary{--bd-violet-bg: #712cf9;--bd-violet-rgb: 112.520718, 44.062154, 249.437846;--bs-btn-font-weight: 600;--bs-btn-color: var(--bs-white);--bs-btn-bg: var(--bd-violet-bg);--bs-btn-border-color: var(--bd-violet-bg);--bs-btn-hover-color: var(--bs-white);--bs-btn-hover-bg: #6528e0;--bs-btn-hover-border-color: #6528e0;--bs-btn-focus-shadow-rgb: var(--bd-violet-rgb);--bs-btn-active-color: var(--bs-btn-hover-color);--bs-btn-active-bg: #5a23c8;--bs-btn-active-border-color: #5a23c8}.bd-mode-toggle{z-index:1500}.bd-mode-toggle .bi{width:1em;height:1em}.bd-mode-toggle .dropdown-menu .active .bi{display:block!important}</style>
-  <style>
-  .imageye-selected {
-    outline: 2px solid black !important;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) !important;
+
+<style>
+  /* Typography scaling */
+  @media (max-width: 576px) {
+    h1.display-3 {
+      font-size: 2.2rem;
+    }
+    h3 {
+      font-size: 1.1rem;
+    }
+  }
+
+  /* Card image behavior on mobile */
+  .card-cover {
+    background-size: cover;
+    background-position: center;
+  }
+
+  @media (max-width: 576px) {
+    .card-cover {
+      min-height: 260px;
+    }
+  }
+
+  /* Reduce excessive padding on mobile */
+  @media (max-width: 576px) {
+    .p-5 {
+      padding: 1.5rem !important;
+    }
+    .py-5 {
+      padding-top: 2rem !important;
+      padding-bottom: 2rem !important;
+    }
   }
 </style>
+
 {% endblock %}
 
 {% block content %}
 
-<!--Home at top-->
-<div class="container py-3 my-3">
-  <h2 class="pb-4">Welcome to Suwi.</h2>
-    </div>
+<!-- Welcome -->
+<div class="container py-3 my-3 text-center text-md-start">
+  <h2 class="pb-3">Welcome to Suwi.</h2>
+</div>
 
-<!--Name and slogan-->
+<!-- HERO -->
 <div class="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center bg-body-tertiary">
-  <div class="col-md-6 p-lg-5 mx-auto my-5">
+  <div class="col-12 col-md-6 p-lg-5 mx-auto my-4 my-md-5">
     <h1 class="display-3 fw-bold">Suwi by Rudra</h1>
-    <h3 class="fw-normal text-muted mb-3">Paper Trading, minus the paper.</h3>
-    <div class="d-flex gap-3 justify-content-center lead fw-normal">
-    </div>
+    <h3 class="fw-normal text-muted mb-3">
+      Paper Trading, minus the paper.
+    </h3>
   </div>
+
+  <!-- Decorative blocks hidden on mobile (already correct) -->
   <div class="product-device shadow-sm d-none d-md-block"></div>
   <div class="product-device product-device-2 shadow-sm d-none d-md-block"></div>
 </div>
 
-<!--CARDS AT BOTTOM-->
-<div class="container px-4 py-5" id="custom-cards">
-  <h2 class="pb-2 border-bottom">Features</h2>
-  <div class="row row-cols-1 row-cols-lg-3 align-items-stretch g-4 py-5">
+<!-- FEATURES -->
+<div class="container px-3 px-md-4 py-4 py-md-5" id="custom-cards">
+  <h2 class="pb-2 border-bottom text-center text-md-start">Features</h2>
+
+  <div class="row row-cols-1 row-cols-lg-3 align-items-stretch g-4 py-4 py-md-5">
+
+    <!-- CARD 1 -->
     <div class="col">
       <div class="card card-cover h-100 overflow-hidden text-bg-dark rounded-4 shadow-lg"
            style="background-image: url('unsplash-photo-1.jpg');">
-        <div class="d-flex flex-column h-100 p-5 pb-3 text-white text-shadow-1">
-          <h3 class="pt-5 mt-5 mb-4 display-6 lh-1 fw-bold">Paper Trading</h3>
-          <ul class="d-flex list-unstyled mt-auto">
-
+        <div class="d-flex flex-column h-100 p-4 p-md-5 pb-3 text-white text-shadow-1">
+          <h3 class="pt-4 mt-4 mb-3 display-6 lh-1 fw-bold">
+            Paper Trading
+          </h3>
+          <ul class="d-flex list-unstyled mt-auto small">
             <li class="me-auto">
-              <img src="https://github.com/twbs.png" alt="Bootstrap" width="32" height="32" class="rounded-circle border border-white">
+              <img src="https://github.com/twbs.png"
+                   width="32" height="32"
+                   class="rounded-circle border border-white">
             </li>
-
             <li class="d-flex align-items-center me-3">
-            <svg class="bi me-2" width="1em" height="1em" role="img" aria-label="Location">
-              <use xlink:href="#geo-fill"></use>
-            </svg> <small>Earth</small>
-          </li>
-
+              <small>Earth</small>
+            </li>
             <li class="d-flex align-items-center">
-              <svg class="bi me-2" width="1em" height="1em" role="img" aria-label="Duration">
-                <use xlink:href="#calendar3"></use>
-              </svg>
               <small>3d</small>
             </li>
           </ul>
         </div>
       </div>
     </div>
+
+    <!-- CARD 2 -->
     <div class="col">
       <div class="card card-cover h-100 overflow-hidden text-bg-dark rounded-4 shadow-lg"
            style="background-image: url('unsplash-photo-2.jpg');">
-        <div class="d-flex flex-column h-100 p-5 pb-3 text-white text-shadow-1">
-
-          <h3 class="pt-5 mt-5 mb-4 display-6 lh-1 fw-bold">Portfolio Watch</h3>
-          <ul class="d-flex list-unstyled mt-auto">
-
+        <div class="d-flex flex-column h-100 p-4 p-md-5 pb-3 text-white text-shadow-1">
+          <h3 class="pt-4 mt-4 mb-3 display-6 lh-1 fw-bold">
+            Portfolio Watch
+          </h3>
+          <ul class="d-flex list-unstyled mt-auto small">
             <li class="me-auto">
-              <img src="https://github.com/twbs.png" alt="Bootstrap" width="32" height="32" class="rounded-circle border border-white">
+              <img src="https://github.com/twbs.png"
+                   width="32" height="32"
+                   class="rounded-circle border border-white">
             </li>
-
             <li class="d-flex align-items-center me-3">
-              <svg class="bi me-2" width="1em" height="1em" role="img" aria-label="Location">
-                <use xlink:href="#geo-fill"></use></svg>
               <small>Rudra G</small>
             </li>
-
             <li class="d-flex align-items-center">
-              <svg class="bi me-2" width="1em" height="1em" role="img" aria-label="Duration">
-                <use xlink:href="#calendar3"></use></svg>
               <small>4d</small>
             </li>
           </ul>
@@ -90,34 +118,32 @@
       </div>
     </div>
 
+    <!-- CARD 3 -->
     <div class="col">
       <div class="card card-cover h-100 overflow-hidden text-bg-dark rounded-4 shadow-lg"
            style="background-image: url('unsplash-photo-3.jpg');">
-        <div class="d-flex flex-column h-100 p-5 pb-3 text-shadow-1">
-          <h3 class="pt-5 mt-5 mb-4 display-6 lh-1 fw-bold" style="vertical-align: top;">Market Overview, Insights and Discipline.</h3>
-          <ul class="d-flex list-unstyled mt-auto">
-
+        <div class="d-flex flex-column h-100 p-4 p-md-5 pb-3 text-white text-shadow-1">
+          <h3 class="pt-4 mt-4 mb-3 display-6 lh-1 fw-bold">
+            Market Overview, Insights and Discipline.
+          </h3>
+          <ul class="d-flex list-unstyled mt-auto small">
             <li class="me-auto">
-              <img src="https://github.com/twbs.png" alt="Bootstrap" width="32" height="32" class="rounded-circle border border-white">
+              <img src="https://github.com/twbs.png"
+                   width="32" height="32"
+                   class="rounded-circle border border-white">
             </li>
-
             <li class="d-flex align-items-center me-3">
-              <svg class="bi me-2" width="1em" height="1em" role="img" aria-label="Location">
-                <use xlink:href="#geo-fill"></use></svg>
               <small>Mumbai</small>
             </li>
-
             <li class="d-flex align-items-center">
-              <svg class="bi me-2" width="1em" height="1em" role="img" aria-label="Duration">
-                <use xlink:href="#calendar3"></use></svg>
               <small>5d</small>
             </li>
           </ul>
         </div>
       </div>
     </div>
+
   </div>
 </div>
-
 
 {% endblock %}

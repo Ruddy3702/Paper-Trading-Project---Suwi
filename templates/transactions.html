@@ -3,79 +3,107 @@
 
 {% block content %}
 <div class="container py-3 my-3">
-  <h2 class="pb-4">Transaction History</h2>
-    <h4>Available Funds: Rs. {{current_user.balance}}</h4>
+  <h2 class="pb-3">Transaction History</h2>
 
-    <h5>
-  Total Realised P&L:
-  <span class="
-    {% if total_pnl > 0 %}
-      text-success
-    {% elif total_pnl < 0 %}
-      text-danger
-    {% else %}
-      text-secondary
-    {% endif %}
-  ">
-    ₹ {{ "%.2f"|format(total_pnl) }}
-  </span>
-</h5>
-<div class="table-responsive">
-  <table class="table table-hover table-striped align-middle table-sm">
-        <thead class="table-dark sticky-top">
-          <tr>
-            <th scope="col">Timestamp</th>
-            <th scope="col">Txn ID</th>
-            <th scope="col">Symbol</th>
-            <th scope="col">Action</th>
-            <th scope="col">Quantity</th>
-            <th scope="col">Price(₹)</th>
-            <th scope="col">Current Price(₹)</th>
-            <th scope="col">Total Value(₹)</th>
-            <th scope="col">P&L(₹)</th>
-            <th scope="col">Remarks</th>
-          </tr>
-        </thead>
+  <div class="mb-2">
+    <h6 class="mb-1">Available Funds: ₹ {{ current_user.balance }}</h6>
 
-        <tbody>
-          {% for tx in data %}
-          <tr>
-            <td class="text-center">
-              {{ tx["timestamp"].strftime("%d/%m/%Y")}}
-            </td>
-            <td class="text-center">
-              {{tx["txn_id"]}}
-            </td>
-            <td class="text-center">
-                <a href="{{ url_for('stock_info', symbol=tx['symbol']) }}">
-              {{tx["symbol"]}}</a>
-            </td>
-           <td class="text-center">
-              {{tx["type"]}}
-            </td>
-            <td class="text-center">
-              {{"%.2f"|format(tx["quantity"])}}
-            </td>
-            <td class="text-center">
-              {{tx["execution_price"]}}
-            </td>
-              <td class="text-center">
-                  {{tx["current_price"]}}
-                </td>
-            <td class="text-center">
-              {{ "%.2f"|format(tx['total_value']) }}
-            </td>
-              <td class="text-center {% if tx['pnl'] > 0 %}text-success{% elif tx['pnl'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+    <h6>
+      Total Realised P&L:
+      <span class="
+        {% if total_pnl > 0 %}
+          text-success
+        {% elif total_pnl < 0 %}
+          text-danger
+        {% else %}
+          text-secondary
+        {% endif %}
+      ">
+        ₹ {{ "%.2f"|format(total_pnl) }}
+      </span>
+    </h6>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-striped align-middle table-sm">
+      <thead class="table-dark sticky-top">
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Symbol</th>
+          <th scope="col">Action</th>
+          <th scope="col">Qty</th>
+          <th scope="col">Price</th>
+          <th scope="col" class="d-none d-md-table-cell">Current</th>
+          <th scope="col">Value</th>
+          <th scope="col">P&L</th>
+          <th scope="col" class="d-none d-lg-table-cell">Txn ID</th>
+          <th scope="col" class="d-none d-lg-table-cell">Remarks</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for tx in data %}
+        <tr>
+          <!-- DATE -->
+          <td class="text-center">
+            {{ tx["timestamp"].strftime("%d/%m/%Y") }}
+          </td>
+
+          <!-- SYMBOL -->
+          <td class="text-center">
+            <a href="{{ url_for('stock_info', symbol=tx['symbol']) }}">
+              {{ tx["symbol"] }}
+            </a>
+          </td>
+
+          <!-- ACTION -->
+          <td class="text-center fw-semibold">
+            {{ tx["type"] }}
+          </td>
+
+          <!-- QTY -->
+          <td class="text-center">
+            {{ "%.2f"|format(tx["quantity"]) }}
+          </td>
+
+          <!-- EXEC PRICE -->
+          <td class="text-center">
+            {{ tx["execution_price"] }}
+          </td>
+
+          <!-- CURRENT PRICE (tablet+) -->
+          <td class="text-center d-none d-md-table-cell">
+            {{ tx["current_price"] }}
+          </td>
+
+          <!-- TOTAL VALUE -->
+          <td class="text-center">
+            {{ "%.2f"|format(tx["total_value"]) }}
+          </td>
+
+          <!-- PNL -->
+          <td class="text-center
+            {% if tx['pnl'] > 0 %}text-success
+            {% elif tx['pnl'] < 0 %}text-danger
+            {% else %}text-secondary
+            {% endif %}
+          ">
             {{ "%.2f"|format(tx['pnl']) if tx['pnl'] else "0.00" }}
           </td>
 
-            <td class="text-center">
-              {{tx["remarks"]}}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          <!-- TXN ID (desktop only) -->
+          <td class="text-center d-none d-lg-table-cell">
+            {{ tx["txn_id"] }}
+          </td>
+
+          <!-- REMARKS (desktop only) -->
+          <td class="text-center d-none d-lg-table-cell">
+            {{ tx["remarks"] }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-  </div>
+</div>
 {% endblock %}

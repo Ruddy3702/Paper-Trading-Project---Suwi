@@ -1,156 +1,141 @@
 {% extends "base.html" %}
-
 {% block title %}Stock Data{% endblock %}
 
 {% block content %}
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-<div class="container py-5 px-5">
-<div class="p-5 mb-4 bg-body-tertiary rounded-3">
-    <div class="container-fluid py-5">
-        <h1 class="display-5 fw-bold">{{ stock['v']['name'] }}</h1>
-          <h3>{{ stock['v']['symbol'] }}</h3>
-        <p class="col-md-8 fs-4">Data at a glance</p>
-        <div class="table-responsive">
-          <table class="table table-hover table-striped align-middle table-sm">
-      <thead class="table-dark sticky-top">
-        <tr>
-          <th scope="col" >Symbol</th>
-          <th scope="col">Price(₹)</th>
-          <th scope="col">Change(₹)</th>
-          <th scope="col">Change %</th>
-          <th scope="col" class="d-none d-sm-table-cell">From Open (%)</th>
-          <th scope="col" class="d-none d-md-table-cell">Open(₹)</th>
-          <th scope="col" class="d-none d-md-table-cell">Close(₹)</th>
-          <th scope="col" class="d-none d-lg-table-cell">High/Low(₹)</th>
-          <th scope="col" class="d-none d-lg-table-cell">Volume</th>
-          <th scope="col" class="d-none d-xl-table-cell">Trend</th>
-        </tr>
-      </thead>
 
-      <tbody>
-        {% set v = stock['v'] %}
-        <tr>
-          <!-- SYMBOL -->
-          <td class="text-center fw-semibold text-decoration-none">
-              {{ stock["n"] }}
+<!-- STOCK SUMMARY -->
+<div class="container py-4 px-3 px-md-5">
+  <div class="p-4 p-md-5 mb-4 bg-body-tertiary rounded-3">
+    <div class="container-fluid py-3 py-md-5">
 
-          </td>
+      <h1 class="display-6 display-md-5 fw-bold mb-1">
+        {{ stock['v']['name'] }}
+      </h1>
+      <h5 class="text-muted mb-3">
+        {{ stock['v']['symbol'] }}
+      </h5>
 
-          <!-- PRICE -->
-          <td class="text-center fw-semibold">
-            {{ "%.2f"|format(v["lp"]) if v["lp"] else "-" }}
-          </td>
+      <p class="fs-6 fs-md-5">Data at a glance</p>
 
-          <!-- CHANGE ₹ -->
-          <td class="text-center {% if v['ch'] > 0 %}text-success{% elif v['ch'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(v["ch"]) if v["ch"] else "0.00" }}
-          </td>
+      <!-- DATA TABLE -->
+      <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle table-sm">
+          <thead class="table-dark sticky-top">
+            <tr>
+              <th>Symbol</th>
+              <th>Price(₹)</th>
+              <th>Change(₹)</th>
+              <th>Change %</th>
+              <th class="d-none d-sm-table-cell">From Open (%)</th>
+              <th class="d-none d-md-table-cell">Open(₹)</th>
+              <th class="d-none d-md-table-cell">Close(₹)</th>
+              <th class="d-none d-lg-table-cell">High/Low(₹)</th>
+              <th class="d-none d-lg-table-cell">Volume</th>
+              <th class="d-none d-xl-table-cell">Trend</th>
+            </tr>
+          </thead>
 
-          <!-- CHANGE % -->
-          <td class="text-center {% if v['chp'] > 0 %}text-success{% elif v['chp'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(v["chp"]) if v["chp"] else "0.00" }}%
-          </td>
+          <tbody>
+            {% set v = stock['v'] %}
+            <tr>
+              <td class="text-center fw-semibold">{{ stock["n"] }}</td>
 
-          <!-- FROM OPEN -->
-          <td class="text-center d-none d-sm-table-cell {% if v['from_open_percent'] > 0 %}text-success{% elif v['from_open_percent'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] else "-" }}%
-          </td>
+              <td class="text-center fw-semibold">
+                {{ "%.2f"|format(v["lp"]) if v["lp"] else "-" }}
+              </td>
 
-          <!-- OPEN -->
-          <td class="text-center d-none d-md-table-cell">
-            {{ "%.2f"|format(v["open_price"]) if v["open_price"] else "-" }}
-          </td>
+              <td class="text-center {% if v['ch'] > 0 %}text-success{% elif v['ch'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+                {{ "%.2f"|format(v["ch"]) if v["ch"] else "0.00" }}
+              </td>
 
-          <!-- CLOSE -->
-          <td class="text-center d-none d-md-table-cell">
-            {{ "%.2f"|format(v["prev_close_price"]) if v["prev_close_price"] else "-" }}
-          </td>
+              <td class="text-center {% if v['chp'] > 0 %}text-success{% elif v['chp'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+                {{ "%.2f"|format(v["chp"]) if v["chp"] else "0.00" }}%
+              </td>
 
-          <!-- HIGH / LOW -->
-          <td class="text-center d-none d-lg-table-cell">
-            {{ "%.2f"|format(v["high_price"]) if v["high_price"] else "-" }}/
-            {{ "%.2f"|format(v["low_price"]) if v["low_price"] else "-" }}
-          </td>
+              <td class="text-center d-none d-sm-table-cell">
+                {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] else "-" }}%
+              </td>
 
-          <!-- VOLUME -->
-          <td class="text-center d-none d-lg-table-cell">
-            {{ "{:,}".format(v["volume"]) if v["volume"] else "-" }}
-          </td>
+              <td class="text-center d-none d-md-table-cell">
+                {{ "%.2f"|format(v["open_price"]) if v["open_price"] else "-" }}
+              </td>
 
-          <!-- TREND -->
-          <td class="text-center d-none d-xl-table-cell {% if v['trend'] == 'Bullish' %}text-success{% elif v['trend'] == 'Bearish' %}text-danger{% else %}text-secondary{% endif %}">
-            {{ v["trend"] if v["trend"] else "-" }}
-          </td>
+              <td class="text-center d-none d-md-table-cell">
+                {{ "%.2f"|format(v["prev_close_price"]) if v["prev_close_price"] else "-" }}
+              </td>
 
-        </tr>
-      </tbody>
-    </table>
-        <a href="{{ url_for('buy', symbol=stock['v']['symbol']) }}" class="btn btn-success btn-lg px-4 py-2 w-30">Buy</a>
-        <a href="{{ url_for('sell', symbol=stock['v']['symbol']) }}" class="btn btn-danger btn-lg px-4 py-2 w-30">Sell</a>
-    </div>
-    </div>
-</div>
-</div>
+              <td class="text-center d-none d-lg-table-cell">
+                {{ "%.2f"|format(v["high_price"]) if v["high_price"] else "-" }}/
+                {{ "%.2f"|format(v["low_price"]) if v["low_price"] else "-" }}
+              </td>
 
-<!--# BUTTONS-->
-<div class="container my-3">
-  <div class="row justify-content-center">
-    <div class="col-auto">
-      <div class="btn-group" role="group">
-        <button class="btn btn-outline-secondary" onclick="loadRange('5D')">5D</button>
-        <button class="btn btn-outline-secondary" onclick="loadRange('1M')">1M</button>
-        <button class="btn btn-outline-secondary" onclick="loadRange('3M')">3M</button>
-        <button class="btn btn-outline-secondary" onclick="loadRange('6M')">6M</button>
-        <button class="btn btn-outline-secondary" onclick="loadRange('1Y')">1Y</button>
-        <button class="btn btn-outline-secondary" onclick="loadRange('5Y')">5Y</button>
+              <td class="text-center d-none d-lg-table-cell">
+                {{ "{:,}".format(v["volume"]) if v["volume"] else "-" }}
+              </td>
+
+              <td class="text-center d-none d-xl-table-cell">
+                {{ v["trend"] if v["trend"] else "-" }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+
+      <!-- BUY / SELL -->
+      <div class="d-flex flex-column flex-sm-row gap-3 mt-3">
+        <a href="{{ url_for('buy', symbol=stock['v']['symbol']) }}"
+           class="btn btn-success btn-lg w-100 w-sm-auto">
+          Buy
+        </a>
+        <a href="{{ url_for('sell', symbol=stock['v']['symbol']) }}"
+           class="btn btn-danger btn-lg w-100 w-sm-auto">
+          Sell
+        </a>
+      </div>
+
     </div>
   </div>
 </div>
 
-<div class="container my-5">
-  <div class="row justify-content-center">
-    <div class="col-12">
-      <div id="chart" style="width:100%; height:420px;"></div>
-    </div>
+<!-- RANGE BUTTONS -->
+<div class="container my-3">
+  <div class="d-flex justify-content-center flex-wrap gap-2">
+    <button class="btn btn-outline-secondary" onclick="loadRange('5D')">5D</button>
+    <button class="btn btn-outline-secondary" onclick="loadRange('1M')">1M</button>
+    <button class="btn btn-outline-secondary" onclick="loadRange('3M')">3M</button>
+    <button class="btn btn-outline-secondary" onclick="loadRange('6M')">6M</button>
+    <button class="btn btn-outline-secondary" onclick="loadRange('1Y')">1Y</button>
+    <button class="btn btn-outline-secondary" onclick="loadRange('5Y')">5Y</button>
   </div>
 </div>
 
+<!-- CHART -->
+<div class="container my-4">
+  <div id="chart" style="width:100%; height:360px;"></div>
+</div>
+
+<!-- JS (unchanged logic) -->
 <script>
 let chart;
 let candleSeries;
 
 document.addEventListener("DOMContentLoaded", function () {
-
     const rawCandles = {{ candles | tojson }};
-
     const candleData = rawCandles.map(c => ({
-        time: c[0],
-        open: c[1],
-        high: c[2],
-        low: c[3],
-        close: c[4]
+        time: c[0], open: c[1], high: c[2], low: c[3], close: c[4]
     }));
 
     const container = document.getElementById("chart");
 
     chart = LightweightCharts.createChart(container, {
         width: container.clientWidth,
-        height: 400,
-        layout: {
-            background: { color: "#ffffff" },
-            textColor: "#000000"
-        },
-        grid: {
-            vertLines: { visible: false },
-            horzLines: { visible: false }
-        }
+        height: 360,
+        layout: { background: { color: "#ffffff" }, textColor: "#000000" },
+        grid: { vertLines: { visible: false }, horzLines: { visible: false } }
     });
 
-    candleSeries = chart.addSeries(
-        LightweightCharts.CandlestickSeries
-    );
-
+    candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries);
     candleSeries.setData(candleData);
 
     window.addEventListener("resize", () => {
@@ -162,47 +147,31 @@ document.addEventListener("DOMContentLoaded", function () {
 <script>
 async function loadRange(range) {
     const symbol = "{{ stock['v']['symbol'] }}";
-
     const res = await fetch(`/candles/${symbol}?range=${range}`);
     const data = await res.json();
+    if (!data || !data.length) return;
 
-    if (!data || !data.length) {
-        console.error("No data for range", range);
-        return;
-    }
-
-    const formatted = data.map(c => ({
-        time: c[0],
-        open: c[1],
-        high: c[2],
-        low: c[3],
-        close: c[4]
-    }));
-
-    candleSeries.setData(formatted);
+    candleSeries.setData(
+      data.map(c => ({ time: c[0], open: c[1], high: c[2], low: c[3], close: c[4] }))
+    );
 }
 </script>
 
-
+<!-- NEWS -->
 {% if news_data %}
-<p class="col-md-8 fs-4 px-5">News for {{stock['v']['name']}}</p>
-<div class="d-flex flex-column flex-md-row p-4 gap-4 py-md-5 align-items-center justify-content-center">
+<div class="container my-4">
+  <h4 class="mb-3">News for {{ stock['v']['name'] }}</h4>
+
   <div class="list-group">
     {% for news in news_data %}
     <a href="{{ news['link'] }}" target="_blank"
-       class="list-group-item list-group-item-action d-flex gap-3 py-3" aria-current="true">
-      <div class="d-flex w-100 justify-content-between">
-        <div>
-          <h6 class="mb-0">{{ news['title'] }}</h6>
-          <p class="mb-0 opacity-75">{{ news['snippet'] }}</p>
-        </div>
-      </div>
+       class="list-group-item list-group-item-action py-3">
+      <h6 class="mb-1">{{ news['title'] }}</h6>
+      <p class="mb-0 opacity-75 small">{{ news['snippet'] }}</p>
     </a>
     {% endfor %}
   </div>
 </div>
-{% elif query %}
-<div class="text-center text-muted py-5">No news found for "{{ query }}".</div>
 {% endif %}
 
 {% endblock %}

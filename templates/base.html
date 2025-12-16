@@ -1,233 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}{% endblock %}</title>
-    {% block styling %}
+  <meta charset="UTF-8">
+
+  <!-- ✅ REQUIRED FOR MOBILE -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>{% block title %}{% endblock %}</title>
+
+  {% block styling %}
     {{ bootstrap.load_css() }}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           rel="stylesheet">
+  {% endblock %}
 
-    {% endblock %}
-    <style>
-  /* === Table Layout === */
-  .table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0 1px; /* subtle row spacing */
-    font-size: 0.80rem;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    margin-bottom: 1rem;
-  }
-
-  /* --- Sticky header --- */
-  .table thead th {
-    position: sticky;
-    top: 0; /* keeps it below navbar */
-    z-index: 10;
-    background-color: #212529 !important;
-    color: #ffffff !important;
-    text-align: center;
-    font-weight: 600;
-    vertical-align: middle;
-    border-bottom: 2px solid #0F8FA9; /* subtle teal accent */
-  }
-
-  /* --- Cell styling --- */
-  .table th,
-  .table td {
-    padding: 0.1rem 0.5rem;
-    vertical-align: middle;
-  }
-
-  /* Right-align numeric data for readability */
-  .table td.text-end,
-  .table th.text-end {
-    text-align: right !important;
-  }
-
-  /* --- Row colors --- */
-  .table-striped tbody tr:nth-of-type(odd) {
-    background-color: #f9f9f9;
-  }
-
-  .table-striped tbody tr:nth-of-type(even) {
-    background-color: #ffffff;
-  }
-
-  /* Hover effect for better scanability */
-  .table tbody tr:hover {
-    background-color: #f1f1f1;
-    transition: background-color 0.15s ease-in-out;
-  }
-
-  /* --- Price movement colors --- */
-  .text-success {
-    color: #22b573 !important; /* bright green */
-    font-weight: 600;
-  }
-
-  .text-danger {
-    color: #e63946 !important; /* red */
-    font-weight: 600;
-  }
-
-  .text-secondary {
-    color: #6c757d !important; /* grey for unchanged */
-    font-weight: 500;
-  }
-
-  /* --- Symbol link --- */
-  a {
-    color: #0d6efd;
-    text-decoration: none;
-    font-weight: 500;
-  }
-
-  a:hover {
-    text-decoration: underline;
-    color: #0b5ed7;
-  }
-
-  /* --- Table responsive scroll (ensures sticky headers stay visible) --- */
-  .table-responsive {
-    max-height: 75vh; /* adjust to your preference */
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #cfd2d6 transparent;
-  }
-
-  /* Chrome/Edge scroll styling */
-  .table-responsive::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-  }
-
-  .table-responsive::-webkit-scrollbar-thumb {
-    background-color: #bfc3c9;
-    border-radius: 4px;
-  }
-
-  /* --- Buttons (Buy / Sell) --- */
-  .btn {
-    font-weight: 600;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    padding: 0.2rem 0.2rem;
-  }
-
-  /* Responsive adjustments for mobile readability */
-  @media (max-width: 576px) {
+  <style>
+    /* === Table Layout === */
     .table {
-      font-size: 0.75rem;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 1px;
+      font-size: 0.80rem;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      margin-bottom: 1rem;
     }
+
+    .table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #212529 !important;
+      color: #ffffff !important;
+      text-align: center;
+      font-weight: 600;
+      vertical-align: middle;
+      border-bottom: 2px solid #0F8FA9;
+    }
+
+    .table th,
+    .table td {
+      padding: 0.1rem 0.5rem;
+      vertical-align: middle;
+    }
+
+    .table td.text-end,
+    .table th.text-end {
+      text-align: right !important;
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: #f9f9f9;
+    }
+
+    .table-striped tbody tr:nth-of-type(even) {
+      background-color: #ffffff;
+    }
+
+    .table tbody tr:hover {
+      background-color: #f1f1f1;
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .text-success {
+      color: #22b573 !important;
+      font-weight: 600;
+    }
+
+    .text-danger {
+      color: #e63946 !important;
+      font-weight: 600;
+    }
+
+    .text-secondary {
+      color: #6c757d !important;
+      font-weight: 500;
+    }
+
+    a {
+      color: #0d6efd;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    a:hover {
+      text-decoration: underline;
+      color: #0b5ed7;
+    }
+
+    .table-responsive {
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+
     .btn {
-      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 8px;
+      font-size: 0.75rem;
       padding: 0.2rem 0.5rem;
     }
-  }
-</style>
+
+    /* ✅ MOBILE FIXES ONLY */
+    @media (max-width: 768px) {
+      header {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+      }
+
+      .logo-text {
+        font-size: 1.5rem;
+      }
+
+      .nav {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .nav-pills .nav-link {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+      }
+
+      .table {
+        font-size: 0.75rem;
+      }
+
+      .btn {
+        font-size: 0.7rem;
+      }
+    }
+  </style>
 </head>
+
 <body style="background-color: #F5F7FA">
+
+<!-- ✅ NAVBAR: responsive wrapping, no redesign -->
 <div class="container-fluid navbar-bg">
-  <header class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
-    <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-decoration-none">
+  <header class="d-flex flex-wrap align-items-center justify-content-between py-3 mb-3 border-bottom">
+
+    <a href="/" class="d-flex align-items-center text-decoration-none mb-2 mb-md-0">
       <span class="fs-2 text-white logo-text">Suwi</span>
     </a>
-        <ul class="nav nav-pills">
-        {% if not current_user.fyers_connected %}
+
+    <ul class="nav nav-pills justify-content-center">
+      {% if not current_user.fyers_connected %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('get_code') }}">Connect Fyers</a>
         </li>
-        {% endif %}
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'home' %}active{% endif %}"
-             href="{{ url_for('home') }}">Home</a>
-        </li>
+      {% endif %}
 
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'database' %}active{% endif %}"
-             href="{{ url_for('database') }}">Stocks</a>
-        </li>
+      <li class="nav-item"><a class="nav-link {% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a></li>
+      <li class="nav-item"><a class="nav-link {% if request.endpoint == 'database' %}active{% endif %}" href="{{ url_for('database') }}">Stocks</a></li>
+      <li class="nav-item"><a class="nav-link {% if request.endpoint == 'get_news' %}active{% endif %}" href="{{ url_for('get_news') }}">News</a></li>
+      <li class="nav-item"><a class="nav-link {% if request.endpoint == 'transactions' %}active{% endif %}" href="{{ url_for('transactions') }}">Transactions</a></li>
+      <li class="nav-item"><a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}" href="{{ url_for('portfolio') }}">Portfolio</a></li>
 
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'get_news' %}active{% endif %}"
-             href="{{ url_for('get_news') }}">News</a>
-        </li>
-
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'transactions' %}active{% endif %}"
-             href="{{ url_for('transactions') }}">Transactions</a>
-        </li>
-
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
-             href="{{ url_for('portfolio') }}">Portfolio</a>
-        </li>
-        {% if not logged_in %}
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
-             href="{{ url_for('login') }}">Login</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
-             href="{{ url_for('register') }}">Register</a>
-        </li>
-        {% elif logged_in: %}
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'portfolio' %}active{% endif %}"
-             href="{{ url_for('logout') }}">Logout</a>
-        </li>
-        {% endif %}
-
-
-        </ul>
-    </header>
-</div>
-<div class="col-6 mx-5 px-2 py-2">
-{% with messages = get_flashed_messages() %}
-    {% if messages: %}
-    <ul class="flashes">
-        {% for msg in messages %}
-        <li>{{msg | safe}}</li>
-        {% endfor %}
+      {% if not logged_in %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">Register</a></li>
+      {% else %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
+      {% endif %}
     </ul>
-    {% endif %}
-{% endwith %}
+  </header>
 </div>
 
+<!-- ✅ FLASHES: full width on mobile -->
+<div class="container px-3">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul class="flashes list-unstyled">
+        {% for msg in messages %}
+          <li class="alert alert-info py-2 mb-2">{{ msg | safe }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+</div>
 
-{% block content %}
-
-{% endblock %}
+{% block content %}{% endblock %}
 
 {% block footer %}
-
 <div class="container">
-<footer class="py-3 my-4">
-<ul class="nav justify-content-center border-bottom pb-3 mb-3">
-  <li class="nav-item">
-    <a href="{{ url_for('home') }}" class="nav-link px-2 text-body-secondary">Home</a>
-  </li>
-  <li class="nav-item">
-    <a href="{{ url_for('database') }}" class="nav-link px-2 text-body-secondary">Stocks</a>
-  </li>
-  <li class="nav-item">
-    <a href="{{ url_for('get_news') }}" class="nav-link px-2 text-body-secondary">News</a>
-  </li>
-  <li class="nav-item">
-    <a href="{{ url_for('transactions') }}" class="nav-link px-2 text-body-secondary">Transactions</a>
-  </li>
-  <li class="nav-item">
-    <a href="{{ url_for('portfolio') }}" class="nav-link px-2 text-body-secondary">Portfolio</a>
-  </li>
-</ul>
-<p class="text-center text-body-secondary">© 2025 Suwi, Inc</p>
-</footer>
+  <footer class="py-3 my-4">
+    <ul class="nav justify-content-center border-bottom pb-3 mb-3 flex-wrap">
+      <li class="nav-item"><a href="{{ url_for('home') }}" class="nav-link px-2 text-body-secondary">Home</a></li>
+      <li class="nav-item"><a href="{{ url_for('database') }}" class="nav-link px-2 text-body-secondary">Stocks</a></li>
+      <li class="nav-item"><a href="{{ url_for('get_news') }}" class="nav-link px-2 text-body-secondary">News</a></li>
+      <li class="nav-item"><a href="{{ url_for('transactions') }}" class="nav-link px-2 text-body-secondary">Transactions</a></li>
+      <li class="nav-item"><a href="{{ url_for('portfolio') }}" class="nav-link px-2 text-body-secondary">Portfolio</a></li>
+    </ul>
+    <p class="text-center text-body-secondary">© 2025 Suwi, Inc</p>
+  </footer>
 </div>
 {% endblock %}
 
