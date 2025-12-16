@@ -93,17 +93,16 @@ def get_auth_code():
     )
     auth_link = get_fyers_authcode(
         client_id=fyers_client_id,
-        secret_key=fyers_secret_key,
-        redirect_uri=redirect_uri
+        secret_key=fyers_secret_key
     )
     return auth_link
 
 
-def get_fyers_authcode(*, client_id, secret_key, redirect_uri):
+def get_fyers_authcode(*, client_id, secret_key):
     session = fyersModel.SessionModel(
         client_id=client_id,
         secret_key=secret_key,
-        redirect_uri=redirect_uri,
+        redirect_uri= os.getenv("FYERS_REDIRECT_URL"),
         response_type="code"
     )
     return session.generate_authcode()

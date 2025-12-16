@@ -55,7 +55,6 @@ class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[InputRequired()])
     fyers_client_id = StringField("Fyers Client ID",validators=[InputRequired()])
     fyers_secret_key = StringField("Fyers Secret Key",validators=[InputRequired()])
-    fyers_redirect_url =URLField("Fyers Redirect URL",validators=[InputRequired()])
     google_api_key =StringField("Google API Key",validators=[InputRequired()])
     cx = StringField("Google CX",validators=[InputRequired()])
     balance = StringField("Starting Balance", validators=[InputRequired()])
@@ -64,7 +63,6 @@ class RegisterForm(FlaskForm):
 class AuthCodeForm(FlaskForm):
     fyers_client_id = StringField("Fyers Client ID", validators=[InputRequired()])
     fyers_secret_key = StringField("Fyers Secret Key", validators=[InputRequired()])
-    fyers_redirect_url = URLField("Fyers Redirect URL", validators=[InputRequired()])
     submit = SubmitField("Submit")
 
 class BuySellForm(FlaskForm):
@@ -123,7 +121,7 @@ def register():
             email = encrypt(request.form.get('email')),
             fyers_client_id = encrypt(request.form.get('fyers_client_id')),
             fyers_secret_key = encrypt(request.form.get('fyers_secret_key')),
-            fyers_redirect_url = encrypt(request.form.get('fyers_redirect_url')),
+            fyers_redirect_url = os.getenv("FYERS_REDIRECT_URL"),
             google_api_key = encrypt(request.form.get('google_api_key')),
             cx = encrypt(request.form.get('cx')),
             balance = balance,
@@ -142,7 +140,6 @@ def get_code():
     auth_link = get_auth_code()
     flash(f"<a href= {auth_link}>Click Here For Auth Code</a>",'success')
     return redirect(url_for('home'))
-    # return render_template('make_auth_code.html', form = form)
 
 
 @app.route("/fyers/callback")
@@ -186,7 +183,6 @@ def database():
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")  # default descending
     data = get_database()
-
     if not data:
         flash(f"Please connect Fyers first")
         return redirect(url_for("get_code"))

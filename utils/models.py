@@ -67,7 +67,6 @@ class UserData(UserMixin, db.Model):
     password: Mapped[str] = mapped_column(String(200), nullable=False)
     fyers_client_id =  mapped_column(LargeBinary, nullable=False)
     fyers_secret_key =  mapped_column(LargeBinary, nullable=False)
-    fyers_redirect_url =  mapped_column(LargeBinary, nullable=False)
     fyers_refresh_token = mapped_column(LargeBinary, nullable=True)
     google_api_key =  mapped_column(LargeBinary, nullable=False)
     cx =  mapped_column(LargeBinary, nullable=False)
@@ -83,7 +82,6 @@ class UserData(UserMixin, db.Model):
             "password": self.password,
             "fyers_client_id": self.fyers_client_id,
             "fyers_secret_key": self.fyers_secret_key,
-            "fyers_redirect_url": self.fyers_redirect_url,
             "google_api_key": self.google_api_key,
             "cx": self.cx,
             "fyers_auth_code": self.fyers_auth_code,
