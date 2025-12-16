@@ -26,9 +26,15 @@ if db_uri.startswith("postgres://"):
     db_uri = db_uri.replace("postgres://", "postgresql+psycopg://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
-# print("DB PATH:", os.path.abspath("transaction_data.db"))
+
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,     # detects dead connections
+    "pool_recycle": 280,       # seconds (Render kills idle conns ~300s)
+    "pool_size": 5,
+    "max_overflow": 5,
+}
+
 db.init_app(app)
-# print("INSTANCE PATH:", app.instance_path)
 
 #LOGIN CODE
 login_manager = LoginManager()

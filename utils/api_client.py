@@ -86,16 +86,21 @@ def exchange_auth_code_for_tokens(auth_code: str) -> str:
 def get_auth_code():
     fyers_client_id = decrypt(current_user.fyers_client_id)
     fyers_secret_key = decrypt(current_user.fyers_secret_key)
+
     redirect_uri = url_for(
         "fyers_callback",
         _external=True,
         _scheme="https"
     )
-    auth_link = get_fyers_authcode(
+
+    session = fyersModel.SessionModel(
         client_id=fyers_client_id,
-        secret_key=fyers_secret_key
+        secret_key=fyers_secret_key,
+        redirect_uri=redirect_uri,
+        response_type="code"
     )
-    return auth_link
+
+    return session.generate_authcode()
 
 
 def get_fyers_authcode(*, client_id, secret_key):
