@@ -13,18 +13,13 @@ from utils.api_client import load_user_data, get_auth_code, exchange_auth_code_f
 from utils.crypto_utils import encrypt
 
 #        CONFIG SECTION
-# # Flask secret key
-FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
-
 app = Flask(__name__)
-app.config["SECRET_KEY"] = FLASK_SECRET_KEY
+app.config["SECRET_KEY"] = os.environ["FLASK_SECRET_KEY"]
+bootstrap = Bootstrap5(app)
 
 # SQLAlchemy DB URI
-DB_URI = f"sqlite:///{os.path.join(app.instance_path, 'transaction_data.db')}"
-
-bootstrap = Bootstrap5(app)
+DB_URI = os.environ["DATABASE_URL"]
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
-
 # print("DB PATH:", os.path.abspath("transaction_data.db"))
 db.init_app(app)
 # print("INSTANCE PATH:", app.instance_path)
@@ -83,15 +78,13 @@ def login():
         user = request.form.get("user")
         password = request.form.get("password")
 
-        print("LOGIN POST", user, password)
-
         user = UserData.query.filter_by(user=user).first()
         if not user:
-            print("Please register first.")
+            flash("Please register first.", "error")
             return redirect(url_for('register'))
 
         if not check_password_hash(user.password, password):
-            print("Invalid email or password, please try again.")
+            flash("Invalid email or password, please try again.", "error")
             return redirect(url_for('login'))
 
         login_user(user)
@@ -109,7 +102,7 @@ def register():
         password = request.form.get('password')
         existing_user = UserData.query.filter_by(user=user_id).first()
         if existing_user:
-            print("You already have an account")
+            flash("You already have an account", "info")
             return redirect(url_for("login"))
         try:
             balance = Decimal(request.form.get('balance'))
@@ -278,9 +271,7 @@ def sell(symbol):
             realised_pnl=realised_pnl,
             remarks=form.remarks.data,
         )
-        print(f"Before SELL balance: {current_user.balance}, profit:{realised_pnl}, transaction value: {txn_val}")
         current_user.balance += txn_val
-        print(f"After SELL balance: {current_user.balance}, profit:{realised_pnl}, transaction value: {txn_val}")
         db.session.add(new_transaction)
         db.session.commit()
         return redirect(url_for("database"))
@@ -361,6 +352,6 @@ def candles(symbol):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
