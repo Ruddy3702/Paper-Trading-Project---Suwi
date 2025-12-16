@@ -303,50 +303,54 @@ def get_avg_price(stock):
 
 
 def calculate_portfolio():
-    results = db.session.execute(db.select(Transaction).where(Transaction.user_id == current_user.user).order_by(Transaction.timestamp)).scalars()
-    portfolio = {}
-    for tx in results:
-        symbol = tx.symbol
+    positions = {}
+    txns = db.session.execute(
+        db.select(Transaction)
+        .where(Transaction.user_id == current_user.user)
+        .order_by(Transaction.timestamp)
+    ).scalars()
 
-        if symbol not in portfolio:
-            portfolio[symbol] = {
-                "symbol": symbol,
-                "name": tx.name,
+    for tx in txns:
+        symbol = tx.symbol
+        qty = Decimal(tx.quantity)
+        price = Decimal(tx.execution_price)
+
+        if symbol not in positions:
+            positions[symbol] = {
                 "quantity": Decimal("0"),
                 "total_cost": Decimal("0"),
             }
 
         if tx.type == "BUY":
-            portfolio[symbol]["quantity"] += tx.quantity
-            portfolio[symbol]["total_cost"] += tx.quantity * tx.execution_price
-
+            positions[symbol]["quantity"] += qty
+            positions[symbol]["total_cost"] += qty * price
 
         elif tx.type == "SELL":
-            avg_cost = portfolio[symbol]["total_cost"] / portfolio[symbol]["quantity"]
-            portfolio[symbol]["quantity"] -= tx.quantity
-            portfolio[symbol]["total_cost"] -= tx.quantity * avg_cost
+            positions[symbol]["quantity"] -= qty
+            positions[symbol]["total_cost"] -= qty * (
+                positions[symbol]["total_cost"] / max(positions[symbol]["quantity"] + qty, 1)
+            )
 
-    final_portfolio = []
+    portfolio = []
+    for symbol, p in positions.items():
+        if p["quantity"] <= 0:
+            continue
 
-    for symbol, data in portfolio.items():
-        if data["quantity"] <= 0:
-            continue  # skip fully sold positions
+        avg_price = p["total_cost"] / p["quantity"]
+        current_price = Decimal(str(get_price(symbol)))
+        market_value = current_price * p["quantity"]
+        unrealised_pnl = (current_price - avg_price) * p["quantity"]
 
-        ltp = get_price(symbol)
-        avg_price = data["total_cost"] / data["quantity"]
-        market_value = data["quantity"] * Decimal(str(ltp))
-        pnl = market_value - data["total_cost"]
-
-        final_portfolio.append({
+        portfolio.append({
             "symbol": symbol,
-            "name": data["name"],
-            "quantity": round(data["quantity"], 2),
-            "avg_price": round(avg_price, 2),
-            "ltp": ltp,
-            "market_value": round(market_value, 2),
-            "pnl": round(pnl, 2),
+            "quantity": p["quantity"],
+            "avg_price": avg_price,
+            "ltp": current_price,
+            "market_value": market_value,
+            "unrealised_pnl": unrealised_pnl,
         })
-    return final_portfolio
+
+    return portfolio
 
 
 def get_price(symbol):

@@ -202,14 +202,15 @@ def database():
 @login_required
 def stock_info(symbol):
     data = get_data(symbol)
-    articles = search(symbol)
-    news_data = search(symbol)["items"]
+
+    # news_data = search(symbol)["items"]
 
     historic_data = get_historic_data(symbol, "1M")["candles"]
 
     return render_template("stock.html", stock=data,
                            logged_in= current_user.is_authenticated,
-                           latest_news = articles, news_data = news_data, candles= historic_data)
+                           # news_data = news_data,
+        candles= historic_data)
 
 
 @app.route("/buy/<symbol>", methods=["POST", "GET"])
@@ -264,7 +265,7 @@ def sell(symbol):
             flash("You do not have enough quantity to sell.")
             return redirect(url_for("sell", symbol=symbol))
         avg_cost = Decimal(position["avg_price"])
-        realized_pnl = (ltp - avg_cost) * qty
+        realised_pnl = (ltp - avg_cost) * qty
 
         new_transaction = Transaction(
             user_id= current_user.user,
@@ -274,10 +275,12 @@ def sell(symbol):
             quantity=qty,
             execution_price=ltp,
             total_value=txn_val,
-            realized_pnl=realized_pnl,
+            realised_pnl=realised_pnl,
             remarks=form.remarks.data,
         )
+        print(f"Before SELL balance: {current_user.balance}, profit:{realised_pnl}, transaction value: {txn_val}")
         current_user.balance += txn_val
+        print(f"After SELL balance: {current_user.balance}, profit:{realised_pnl}, transaction value: {txn_val}")
         db.session.add(new_transaction)
         db.session.commit()
         return redirect(url_for("database"))
@@ -299,34 +302,50 @@ def get_news():
 @app.route("/transactions")
 @login_required
 def transactions():
-    results = db.session.execute(db.select(Transaction).where(Transaction.user_id == current_user.user)).scalars()
+    results = db.session.execute(
+        db.select(Transaction)
+        .where(Transaction.user_id == current_user.user)
+        .order_by(Transaction.timestamp.desc())
+    ).scalars()
+
     transaction_data = []
+    total_realised_pnl = Decimal("0.00")
+
     for tx in results:
         current_price = get_price(tx.symbol)
-        pnl = tx.realized_pnl if tx.type == "SELL" else None
-        transaction_data.append(
-            {
-                "txn_id": tx.txn_id,
-                "symbol": tx.symbol,
-                "type": tx.type,
-                "quantity": tx.quantity,
-                "execution_price": tx.execution_price,
-                "total_value": tx.total_value,
-                "timestamp": tx.timestamp,
-                "remarks": tx.remarks,
-                "pnl": pnl,
-                "current_price": current_price,
-            }
-        )
-    return render_template("transactions.html", data=transaction_data, logged_in= current_user.is_authenticated)
 
+        pnl = tx.realised_pnl if tx.type == "SELL" else Decimal("0.00")
+        total_realised_pnl += pnl
+
+        transaction_data.append({
+            "txn_id": tx.txn_id,
+            "symbol": tx.symbol,
+            "type": tx.type,
+            "quantity": tx.quantity,
+            "execution_price": tx.execution_price,
+            "total_value": tx.total_value,
+            "timestamp": tx.timestamp,
+            "remarks": tx.remarks,
+            "pnl": pnl,
+            "current_price": current_price,
+        })
+
+    return render_template(
+        "transactions.html",
+        data=transaction_data,
+        total_pnl=total_realised_pnl,
+        logged_in=current_user.is_authenticated,
+    )
 
 @app.route("/portfolio")
 @login_required
 def portfolio():
-    final_portfolio = calculate_portfolio()
+    portfolio = calculate_portfolio()
+    total_unrealised_pnl = sum(p["unrealised_pnl"] for p in portfolio)
+    total_market_value =  sum(p["market_value"] for p in portfolio)
     return render_template("portfolio.html",
-                           logged_in= current_user.is_authenticated, data=final_portfolio)
+                           logged_in= current_user.is_authenticated, data=portfolio,
+                           total_unrealised_pnl = total_unrealised_pnl, tmv =total_market_value)
 
 
 @app.route("/candles/<symbol>")

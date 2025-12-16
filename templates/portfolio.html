@@ -4,35 +4,42 @@
 {% block content %}
 <div class="container py-3 my-3">
   <h2 class="pb-4">{{current_user.user}}'s Portfolio</h2>
-    <h3>Available Funds: Rs. {{current_user.balance}}</h3>
+    <h3>Market Value: Rs. {{"%.2f"|format(tmv)}}</h3>
+    <h4>Available Funds: Rs. {{current_user.balance}}</h4>
+    <h5 class ="{% if total_unrealised_pnl > 0 %}text-success
+            {% elif total_unrealised_pnl < 0 %}text-danger
+            {% else %}text-secondary{% endif %}">Profit/Loss: Rs.{{ "%.2f"|format(total_unrealised_pnl) }}</h5>
+
 <div class="table-responsive">
-  <table class="table table-hover table-striped align-middle table-sm">
+    <table class="table table-hover table-striped align-middle table-sm">
         <thead class="table-dark sticky-top">
       <tr>
-        <th  scope="col">Symbol</th>
+        <th scope="col">Symbol</th>
         <th scope="col">Name</th>
         <th class="text-end" scope="col">Quantity Held</th>
         <th class="text-end" scope="col">Avg Price(₹)</th>
         <th class="text-end" scope="col">LTP(₹)</th>
         <th class="text-end" scope="col">Market Value(₹)</th>
-        <th class="text-end" scope="col">PnL(₹)</th>
-        <th class="text-end" scope="col">%PnL</th>
+        <th class="text-end">Unrealised P&L (₹)</th>
+        <th class="text-end">%Unrealised</th>
       </tr>
       </thead>
       <tbody>
       {% for row in data %}
       <tr>
-        <td>
-            <a href="{{ url_for('stock_info', symbol=row['symbol']) }}">
-            {{row['symbol']}}</a></td>
+        <td><a href="{{ url_for('stock_info', symbol=row['symbol']) }}">{{row['symbol']}}</a></td>
         <td>{{row['name']}}</td>
         <td class="text-end">{{"%.2f"|format(row['quantity'])}}</td>
         <td class="text-end">{{"%.2f"|format(row['avg_price'])}}</td>
         <td class="text-end">{{"%.2f"|format(row['ltp'])}}</td>
         <td class="text-end">{{"%.2f"|format(row['market_value'])}}</td>
-        <td class="text-end {% if row['pnl'] > 0 %}text-success{% elif row['pnl'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
-  {{ "%.2f"|format(row['pnl']) }}</td>
-        <td class="text-end">{{ "%.2f"|format((row['pnl'] / (row['avg_price'] * row['quantity'])) * 100) }}%</td>
+        <td class="text-end
+        {% if row['unrealised_pnl'] > 0 %}text-success
+        {% elif row['unrealised_pnl'] < 0 %}text-danger
+        {% else %}text-secondary
+        {% endif %}">₹ {{ "%.2f"|format(row['unrealised_pnl']) }}</td>
+        <td class="text-end">{{ "%.2f"|format((row['unrealised_pnl'] / (row['avg_price'] * row['quantity'])) * 100 ) }}%
+        </td>
       </tr>
       {% endfor %}
       </tbody>
