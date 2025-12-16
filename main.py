@@ -18,8 +18,7 @@ app.config["SECRET_KEY"] = os.environ["FLASK_SECRET_KEY"]
 bootstrap = Bootstrap5(app)
 
 # SQLAlchemy DB URI
-DB_URI = os.environ["DATABASE_URL"]
-app.config["SQLALCHEMY_DATABASE_URI"] = DB_URI
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DB_URI"]
 # print("DB PATH:", os.path.abspath("transaction_data.db"))
 db.init_app(app)
 # print("INSTANCE PATH:", app.instance_path)
