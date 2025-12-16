@@ -14,11 +14,18 @@ from utils.crypto_utils import encrypt
 
 #        CONFIG SECTION
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ["FLASK_SECRET_KEY"]
 bootstrap = Bootstrap5(app)
 
-# SQLAlchemy DB URI
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DB_URI"]
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-secret")
+
+db_uri = os.getenv("DB_URI")
+if not db_uri:
+    raise RuntimeError("DB_URI not set")
+
+if db_uri.startswith("postgres://"):
+    db_uri = db_uri.replace("postgres://", "postgresql+psycopg://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
 # print("DB PATH:", os.path.abspath("transaction_data.db"))
 db.init_app(app)
 # print("INSTANCE PATH:", app.instance_path)
@@ -163,8 +170,7 @@ def logout():
 @app.route("/", methods = ["GET", "POST"])
 @login_required
 def home():
-    load_user_data(current_user)
-    return render_template("index.html", logged_in= current_user.is_authenticated)
+    return render_template("index.html", logged_in=True)
 
 
 @app.route("/stocks", methods=["GET", "POST"])
@@ -195,14 +201,14 @@ def database():
 def stock_info(symbol):
     data = get_data(symbol)
 
-    # news_data = search(symbol)["items"]
+    news_data = search(symbol)["items"]
 
     historic_data = get_historic_data(symbol, "1M")["candles"]
 
     return render_template("stock.html", stock=data,
                            logged_in= current_user.is_authenticated,
-                           # news_data = news_data,
-        candles= historic_data)
+                           news_data = news_data,
+                           candles= historic_data)
 
 
 @app.route("/buy/<symbol>", methods=["POST", "GET"])

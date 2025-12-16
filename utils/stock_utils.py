@@ -78,98 +78,80 @@ def enrich_stock_data(stock: dict) -> dict:
 
 
 def get_database(symbols=None):
-    creds = get_fyers_credentials()
-    FYERS_CLIENT_ID = creds["client_id"]
-    FYERS_SECRET_KEY = creds["secret_key"]
     access_token = get_fyers_access_token()
+    if not access_token:
+        return None
+
+    creds = get_fyers_credentials()
+    fyers = fyersModel.FyersModel(
+        client_id=creds["client_id"],
+        token=access_token,
+        is_async=False,
+        log_path=""
+    )
 
     cache_file = os.path.join(DATA_DIR, "stock_cache.json")
     cache = {}
+
     if os.path.exists(cache_file):
         try:
             with open(cache_file, "r") as f:
                 cache = json.load(f)
-        except json.JSONDecodeError:
+        except Exception:
             cache = {}
 
     now = time.time()
 
     if cache:
-        if symbols:
-            required_symbols = set(symbols)
-        else:
-            eq_only_path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
-            file = pd.read_csv(eq_only_path, header=0)
-            required_symbols = set(file["symbol"].tolist())
+        required_symbols = set(symbols) if symbols else set(cache.keys())
+        if all(
+            s in cache and now - cache[s]["timestamp"] < CACHE_TTL
+            for s in required_symbols
+        ):
+            return [enrich_stock_data(cache[s]["data"]) for s in required_symbols]
 
-        cached_symbols = set(cache.keys())
+    eq_list = symbols
+    if not eq_list:
+        path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
+        df = pd.read_csv(path)
+        eq_list = df["symbol"].tolist()
 
-        # All required symbols exist in cache
-        if required_symbols.issubset(cached_symbols):
-            # All cached data still fresh
-            if all(now - cache[s]["timestamp"] < CACHE_TTL for s in required_symbols):
-                print("Using cached market data (API skipped).")
-                return [
-                    enrich_stock_data(cache[s]["data"])
-                    for s in required_symbols
-                ]
+    response = fyers.quotes({"symbols": ",".join(eq_list)})
+    raw = response.get("d", [])
 
-    fyers = fyersModel.FyersModel(
-        client_id=FYERS_CLIENT_ID,
-        token=access_token,
-        is_async=False,
-        log_path=os.path.join(DATA_DIR, "fyers_logs")
-    )
-
-    if symbols:
-        eq_list = symbols
-    else:
-        eq_only_path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
-        file = pd.read_csv(eq_only_path, header=0)
-        eq_list = file["symbol"].tolist()
-
-    eq_str = ",".join(eq_list)
-    data = {"symbols": eq_str}
-    response = fyers.quotes(data=data)
-
-    raw_quotes = response.get("d", response)
-
-    cleaned_quotes = []
-    for stock in raw_quotes:
+    cleaned = []
+    for stock in raw:
         if not isinstance(stock, dict) or "v" not in stock:
             continue
 
-        v = stock.get("v", {})
-
-        # drop error / invalid rows (like ORICONENT with code -300)
-        if (
-            not isinstance(v, dict)
-            or "symbol" not in v
-            or v.get("code") not in (None, 0)
-        ):
+        symbol = stock["v"].get("symbol")
+        if not symbol:
             continue
 
-        symbol = v.get("symbol")
-        if symbol:
-            cache[symbol] = {
-                "data": stock,
-                "timestamp": time.time()
-            }
+        cache[symbol] = {
+            "data": stock,
+            "timestamp": time.time()
+        }
 
-        cleaned_quotes.append(enrich_stock_data(stock))
+        cleaned.append(enrich_stock_data(stock))
+
     with open(cache_file, "w") as f:
         json.dump(cache, f)
-    print("Data fetched successfully.")
-    return cleaned_quotes
+
+    return cleaned
 
 
 def get_historic_data(symbol, range_key):
     print("RANGE KEY RECEIVED:", range_key)
     creds = get_fyers_credentials()
+    access_token = get_fyers_access_token()
+    if not access_token:
+        return {"s": "error", "candles": []}
+
     fyers = fyersModel.FyersModel(
         client_id=creds["client_id"],
+        token=access_token,
         is_async=False,
-        token=get_fyers_access_token(),
         log_path=""
     )
 
@@ -233,62 +215,43 @@ def get_name_map():
 
 
 def get_data(symbol):
-    """Fetch single stock data with 5-min cache fallback."""
-    cache_file = os.path.join(DATA_DIR, "stock_cache.json")
-    creds = get_fyers_credentials()
-    FYERS_CLIENT_ID = creds["client_id"]
-    FYERS_SECRET_KEY = creds["secret_key"]
-
-    cache = {}
-    if os.path.exists(cache_file):
-        with open(cache_file, "r") as f:
-            try:
-                cache = json.load(f)
-            except json.JSONDecodeError:
-                cache = {}
-
-    if symbol in cache:
-        cached_entry = cache[symbol]
-        if time.time() - cached_entry["timestamp"] < 300:
-            print(f"Using cached data for {symbol}")
-            return cached_entry["data"]
-
     access_token = get_fyers_access_token()
+    if not access_token:
+        return None
+
+    creds = get_fyers_credentials()
     fyers = fyersModel.FyersModel(
-        client_id=FYERS_CLIENT_ID,
+        client_id=creds["client_id"],
         token=access_token,
         is_async=False,
-        log_path=os.path.join(DATA_DIR, "fyers_logs")
+        log_path=""
     )
-    data = {"symbols": f"{symbol}"}
-    response = fyers.quotes(data=data)
-    quotes_data = response.get('d', response)
-    stock = quotes_data[0]
-    enriched_stock = enrich_stock_data(stock)
 
-    cache[symbol] = {"data": enriched_stock, "timestamp": time.time()}
-    with open(cache_file, "w") as f:
-        json.dump(cache, f)
+    response = fyers.quotes({"symbols": symbol})
+    data = response.get("d", [])
 
-    print(f"Data fetched successfully for {symbol}.")
-    return enriched_stock
+    if not data:
+        return None
+
+    return enrich_stock_data(data[0])
 
 
 def search(name):
-    query = name
-    yourAPIKey = decrypt(current_user.google_api_key)
-    cx = decrypt(current_user.cx)
-    response = requests.get(
-        url=f"https://www.googleapis.com/customsearch/v1",
-        params={
-            "key": yourAPIKey,
-            "cx": cx,
-            "q": query
-        }
-    )
-    response.raise_for_status()
-    data = response.json()
-    return data
+    try:
+        key = decrypt(current_user.google_api_key)
+        cx = decrypt(current_user.cx)
+    except Exception:
+        return {"items": []}
+    try:
+        response = requests.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params={"key": key, "cx": cx, "q": name},
+            timeout=5
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return {"items": []}
 
 
 def get_avg_price(stock):
