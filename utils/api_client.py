@@ -27,9 +27,9 @@ def get_fyers_credentials():
     }
 
 
-def load_user_data(current_user):
+def load_user_data():
     user_data = UserData.query.filter_by(user=current_user.user).first()
-    return(user_data)
+    return user_data
 
 
 def exchange_auth_code_for_tokens(auth_code: str) -> str:
