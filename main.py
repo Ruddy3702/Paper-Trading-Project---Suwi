@@ -1,39 +1,37 @@
+from datetime import datetime, time
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_wtf import FlaskForm
-from wtforms import DecimalField, SubmitField, StringField, URLField, PasswordField
+from wtforms import DecimalField, SubmitField, StringField, PasswordField, SelectField
 from flask_bootstrap import Bootstrap5
 from wtforms.validators import InputRequired, NumberRange
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, LoginManager, login_required, current_user, logout_user
 from decimal import Decimal
 from utils.models import db, UserData, Transaction
-from utils.stock_utils import get_data, get_database, search, calculate_portfolio, get_price, get_historic_data
-from utils.api_client import load_user_data, get_auth_code, exchange_auth_code_for_tokens
+from utils.stock_utils import get_data, get_database, search, calculate_portfolio, get_historic_data, get_prices_bulk, get_quantity_held
+from utils.api_client import get_auth_code, exchange_auth_code_for_tokens
 from utils.crypto_utils import encrypt
+import pytz
 
 #        CONFIG SECTION
 app = Flask(__name__)
 bootstrap = Bootstrap5(app)
 
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-secret")
-
 db_uri = os.getenv("DB_URI")
 if not db_uri:
     raise RuntimeError("DB_URI not set")
-
 if db_uri.startswith("postgres://"):
     db_uri = db_uri.replace("postgres://", "postgresql+psycopg://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
-
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,     # detects dead connections
     "pool_recycle": 280,       # seconds (Render kills idle conns ~300s)
     "pool_size": 5,
     "max_overflow": 5,
 }
-
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-secret")
 db.init_app(app)
 
 #LOGIN CODE
@@ -48,6 +46,7 @@ def load_user(user_id):
 
 with app.app_context():
     db.create_all()
+
 
 # login form
 class LoginForm(FlaskForm):
@@ -80,13 +79,18 @@ class GetNewsForm(FlaskForm):
     query = StringField("Query", validators=[InputRequired()])
     submit = SubmitField("Confirm")
 
+class BalanceForm(FlaskForm):
+    amount = DecimalField("Add/Withdraw Amount", validators = [InputRequired(),NumberRange(min=0.01)])
+    action = SelectField("Action", choices=[("ADD", "Add Balance"), ("SUB", "Withdraw Funds")], validators=[InputRequired()])
+    submit = SubmitField("Confirm")
+
 
 @app.route("/login", methods = ["GET", "POST"])
 def login():
     form = LoginForm()
     if request.method == "POST":
-        user = request.form.get("user")
-        password = request.form.get("password")
+        user = form.user.data
+        password = form.password.data
 
         user = UserData.query.filter_by(user=user).first()
         if not user:
@@ -108,14 +112,14 @@ def login():
 def register():
     form = RegisterForm()
     if request.method =="POST":
-        user_id = request.form.get('user')
-        password = request.form.get('password')
+        user_id = form.user.data
+        password = form.password.data
         existing_user = UserData.query.filter_by(user=user_id).first()
         if existing_user:
             flash("You already have an account", "info")
             return redirect(url_for("login"))
         try:
-            balance = Decimal(request.form.get('balance'))
+            balance = Decimal(form.balance.data)
             if balance <= 0:
                 raise ValueError
         except:
@@ -124,11 +128,11 @@ def register():
         new_user = UserData(
             user = user_id,
             password = generate_password_hash(password=str(password), method='pbkdf2:sha256', salt_length=8),
-            email = encrypt(request.form.get('email')),
-            fyers_client_id = encrypt(request.form.get('fyers_client_id')),
-            fyers_secret_key = encrypt(request.form.get('fyers_secret_key')),
-            google_api_key = encrypt(request.form.get('google_api_key')),
-            cx = encrypt(request.form.get('cx')),
+            email = encrypt(form.email.data),
+            fyers_client_id = encrypt(form.fyers_client_id.data),
+            fyers_secret_key = encrypt(form.fyers_secret_key.data),
+            google_api_key = encrypt(form.google_api_key.data),
+            cx = encrypt(form.cx.data),
             balance = balance,
         )
         db.session.add(new_user)
@@ -185,6 +189,7 @@ def home():
 @app.route("/stocks", methods=["GET", "POST"])
 @login_required
 def database():
+    online = False
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")  # default descending
     data = get_database()
@@ -201,7 +206,13 @@ def database():
         else:
             data.sort(key=lambda x: x["v"].get(sort_by, 0) or 0, reverse=reverse)
 
-    return render_template("database.html", all_stocks=data, sort_by=sort_by, order=order, logged_in= current_user.is_authenticated)
+    now = datetime.now(pytz.timezone("Asia/Kolkata"))
+    is_weekday = now.weekday() < 5
+    is_market_time = time(9, 15) <= now.time() <= time(15, 30)
+
+    if is_weekday and is_market_time:
+        online = True
+    return render_template("database.html", all_stocks=data, sort_by=sort_by, order=order, logged_in= current_user.is_authenticated, status = online)
 
 
 @app.route("/stock/<symbol>")
@@ -224,6 +235,7 @@ def stock_info(symbol):
 def buy(symbol):
     form = BuySellForm()
     data = get_data(symbol)
+    qty_held = get_quantity_held(symbol)
     if request.method == "POST" and form.validate():
         qty = form.quantity.data
         ltp = Decimal(str(data["v"]["lp"]))
@@ -245,9 +257,10 @@ def buy(symbol):
         current_user.balance -= txn_val
         db.session.add(new_transaction)
         db.session.commit()
-        return redirect(url_for("database"))
+        next_page = request.args.get("next")
+        return redirect(next_page or url_for("database"))
     return render_template("buy-sell.html", balance = current_user.balance, stock=data, form=form,
-                           logged_in= current_user.is_authenticated, action="BUY")
+                           logged_in= current_user.is_authenticated, action="BUY", quantity_held=qty_held)
 
 
 @app.route("/sell/<symbol>", methods=["GET", "POST"])
@@ -255,7 +268,7 @@ def buy(symbol):
 def sell(symbol):
     form = BuySellForm()
     data = get_data(symbol)
-
+    qty_held = get_quantity_held(symbol)
     if request.method == "POST" and form.validate():
         qty = Decimal(str(form.quantity.data))
         ltp = Decimal(str(data["v"]["lp"]))
@@ -287,9 +300,10 @@ def sell(symbol):
         current_user.balance += txn_val
         db.session.add(new_transaction)
         db.session.commit()
-        return redirect(url_for("database"))
+        next_page = request.args.get("next")
+        return redirect(next_page or url_for("database"))
     return render_template("buy-sell.html", balance = current_user.balance, stock=data, form=form,
-                           logged_in= current_user.is_authenticated, action="SELL")
+                           logged_in= current_user.is_authenticated, action="SELL", quantity_held=qty_held)
 
 
 @app.route("/news", methods=["GET", "POST"])
@@ -314,9 +328,14 @@ def transactions():
 
     transaction_data = []
     total_realised_pnl = Decimal("0.00")
+    symbols = {tx.symbol for tx in results}
+    price_map = {}
+
+    if current_user.fyers_connected and symbols:
+        price_map = get_prices_bulk(list(symbols))
 
     for tx in results:
-        current_price = get_price(tx.symbol)
+        current_price = price_map.get(tx.symbol)
 
         pnl = tx.realised_pnl if tx.type == "SELL" else Decimal("0.00")
         total_realised_pnl += pnl
@@ -341,15 +360,56 @@ def transactions():
         logged_in=current_user.is_authenticated,
     )
 
+
 @app.route("/portfolio")
 @login_required
 def portfolio():
     portfolio = calculate_portfolio()
-    total_unrealised_pnl = sum(p["unrealised_pnl"] for p in portfolio)
-    total_market_value =  sum(p["market_value"] for p in portfolio)
-    return render_template("portfolio.html",
-                           logged_in= current_user.is_authenticated, data=portfolio,
-                           total_unrealised_pnl = total_unrealised_pnl, tmv =total_market_value)
+
+    sort_by = request.args.get("sort_by")
+    order = request.args.get("order", "desc")
+
+    symbols = [p["symbol"] for p in portfolio]
+
+    price_map = {}
+    if current_user.fyers_connected and symbols:
+        price_map = get_prices_bulk(symbols)
+
+    total_unrealised_pnl = Decimal("0")
+    total_market_value = Decimal("0")
+
+    for p in portfolio:
+        ltp = price_map.get(p["symbol"])
+
+        if ltp is None:
+            p["ltp"] = None
+            p["market_value"] = None
+            p["unrealised_pnl"] = None
+            continue
+
+        p["ltp"] = ltp
+        p["market_value"] = ltp * p["quantity"]
+        p["unrealised_pnl"] = (ltp - p["avg_price"]) * p["quantity"]
+
+        total_unrealised_pnl += p["unrealised_pnl"]
+        total_market_value += p["market_value"]
+
+    if sort_by:
+        reverse = order == "desc"
+        if sort_by == "pnl":
+            portfolio.sort(key=lambda x: x["unrealised_pnl"] or Decimal("0"), reverse=reverse)
+        elif sort_by == "value":
+            portfolio.sort(key=lambda x: x["market_value"] or Decimal("0"), reverse=reverse)
+        elif sort_by == "qty":
+            portfolio.sort(key=lambda x: x["quantity"], reverse=reverse)
+        elif sort_by == "symbol":
+            portfolio.sort(key=lambda x: x["symbol"], reverse=reverse)
+
+    if not current_user.fyers_connected:
+        flash("Live prices unavailable. Connect FYERS to view P&L.", "info")
+
+    return render_template("portfolio.html", data=portfolio, total_unrealised_pnl=total_unrealised_pnl,
+                           tmv=total_market_value, logged_in=True)
 
 
 @app.route("/candles/<symbol>")
@@ -364,6 +424,27 @@ def candles(symbol):
     return jsonify({
         "candles": data.get("candles", [])
     }), 200
+
+
+@app.route("/balance", methods= ["GET", "POST"])
+@login_required
+def balance():
+    form = BalanceForm()
+    if request.method == "POST" and form.validate_on_submit():
+        user = current_user
+        amount = form.amount.data
+        action = form.action.data
+        if action == "ADD":
+            user.balance += amount
+        elif action == "SUB":
+            if amount > user.balance:
+                flash("Insufficient balance", "danger")
+                return redirect(url_for("balance"))
+            user.balance -= amount
+        db.session.commit()
+        flash(f"Balance updated. New balance is  ₹ {user.balance}","success")
+        return redirect(url_for("home"))
+    return render_template('balance.html', form=form)
 
 
 if __name__ == "__main__":

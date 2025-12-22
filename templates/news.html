@@ -5,18 +5,15 @@
 
 {% block content %}
 
-<!-- Header + Search -->
 <div class="container py-2 my-3">
   <h2 class="pb-3 text-center text-md-start">News</h2>
 
-  <!-- ✅ Form should NOT be inside a heading -->
   <div class="mb-3">
     {{ render_form(form) }}
   </div>
 </div>
 
 {% if data %}
-<!-- ✅ Responsive wrapper -->
 <div class="container">
   <div class="row justify-content-center">
     <div class="col-12 col-md-10 col-lg-8">

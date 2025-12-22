@@ -29,7 +29,7 @@ def get_fyers_credentials():
 
 def load_user_data(current_user):
     user_data = UserData.query.filter_by(user=current_user.user).first()
-    print(type(user_data))
+    return(user_data)
 
 
 def exchange_auth_code_for_tokens(auth_code: str) -> str:

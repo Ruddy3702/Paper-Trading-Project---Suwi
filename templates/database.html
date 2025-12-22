@@ -1,10 +1,26 @@
 {% extends "base.html" %}
 {% block title %}All Stocks{% endblock %}
 
+{% set current_query = request.query_string.decode() %}
+
 {% block content %}
 <div class="container-fluid container-md py-3 my-3">
 
-  <h2 class="pb-3 text-center text-md-start">Top 500 Stocks</h2>
+  <h2 class="pb-3 text-center text-md-start">
+    Top 500 Stocks
+    {% if status %}
+      🟢
+    {% else %}
+      🔴
+    {% endif %}
+  </h2>
+
+  <div class="mb-3">
+    <input type="text"
+           id="stockSearch"
+           class="form-control form-control-sm"
+           placeholder="Search stocks by name or symbol (e.g. INFY, Reliance)">
+  </div>
 
   <!-- SORT CONTROLS -->
   <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center gap-2 mb-3">
@@ -73,12 +89,12 @@
       <tbody>
       {% for stock in all_stocks %}
         {% set v = stock['v'] %}
-        <tr>
+        <tr data-search="{{ v['name']|lower }} {{ v['symbol']|lower }}">
 
           <td class="text-center">
             <a href="{{ url_for('stock_info', symbol=v['symbol']) }}"
                class="fw-semibold text-decoration-none">
-              {{ stock["n"] }}
+              {{ stock["n"][4:].split("-EQ")[0] }}
             </a>
           </td>
 
@@ -140,11 +156,11 @@
           <!-- ACTION -->
           <td>
             <div class="d-flex flex-column flex-md-row justify-content-center gap-1">
-              <a href="{{ url_for('buy', symbol=v['symbol']) }}"
+              <a href="{{ url_for('buy', symbol=v['symbol']) }}{% if current_query %}?{{ current_query }}{% endif %}">
                  class="btn btn-success btn-sm px-2">
                 Buy
               </a>
-              <a href="{{ url_for('sell', symbol=v['symbol']) }}"
+              <a href="{{ url_for('sell', symbol=v['symbol']) }}{% if current_query %}?{{ current_query }}{% endif %}">
                  class="btn btn-danger btn-sm px-2">
                 Sell
               </a>
@@ -157,4 +173,19 @@
     </table>
   </div>
 </div>
+
+<script>
+  const searchInput = document.getElementById("stockSearch");
+  const rows = document.querySelectorAll("tbody tr");
+
+  searchInput.addEventListener("input", function () {
+    const query = this.value.toLowerCase().trim();
+
+    rows.forEach(row => {
+      const text = row.dataset.search;
+      row.style.display = text.includes(query) ? "" : "none";
+    });
+  });
+</script>
+
 {% endblock %}

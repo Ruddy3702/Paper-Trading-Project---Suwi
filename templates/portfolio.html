@@ -1,32 +1,55 @@
 {% extends "base.html" %}
-
 {% block title %}Portfolio{% endblock %}
 {% block content %}
 
 <div class="container py-3 my-3">
   <h2 class="pb-3">{{ current_user.user }}'s Portfolio</h2>
 
-  <!-- Summary -->
   <div class="mb-3">
-    <h5 class="mb-1">Market Value: Rs. {{ "%.2f"|format(tmv) }}</h5>
-    <h6 class="mb-1">Available Funds: Rs. {{ current_user.balance }}</h6>
-    <h6 class="{% if total_unrealised_pnl > 0 %}text-success
-               {% elif total_unrealised_pnl < 0 %}text-danger
-               {% else %}text-secondary{% endif %}">
-      Profit/Loss: Rs. {{ "%.2f"|format(total_unrealised_pnl) }}
+    <h5 class="mb-1">Market Value: ₹ {{ "%.2f"|format(tmv) }}</h5>
+    <h6 class="mb-1">Available Funds: ₹ {{ current_user.balance }}</h6>
+    <h6 class="
+      {% if total_unrealised_pnl > 0 %}text-success
+      {% elif total_unrealised_pnl < 0 %}text-danger
+      {% else %}text-secondary{% endif %}">
+      Profit/Loss: ₹ {{ "%.2f"|format(total_unrealised_pnl) }}
     </h6>
   </div>
+
+  <form method="get" class="d-flex align-items-center gap-2 mb-3">
+    <label class="fw-semibold mb-0">Sort by:</label>
+
+    <select name="sort_by"
+            class="form-select form-select-sm w-auto"
+            onchange="this.form.submit()">
+      <option value="">Select</option>
+      <option value="pnl" {% if request.args.get('sort_by') == 'pnl' %}selected{% endif %}>P&L</option>
+      <option value="value" {% if request.args.get('sort_by') == 'value' %}selected{% endif %}>Market Value</option>
+      <option value="qty" {% if request.args.get('sort_by') == 'qty' %}selected{% endif %}>Quantity</option>
+      <option value="symbol" {% if request.args.get('sort_by') == 'symbol' %}selected{% endif %}>Symbol</option>
+    </select>
+
+    {% if request.args.get('sort_by') %}
+      <input type="hidden"
+             name="order"
+             value="{{ 'asc' if request.args.get('order', 'desc') == 'desc' else 'desc' }}">
+
+      <button class="btn btn-outline-secondary btn-sm" type="submit" title="Toggle order">
+        {% if request.args.get('order', 'desc') == 'desc' %}▲{% else %}▼{% endif %}
+      </button>
+    {% endif %}
+  </form>
 
   <div class="table-responsive">
     <table class="table table-hover table-striped align-middle table-sm">
       <thead class="table-dark sticky-top">
         <tr>
-          <th scope="col">Symbol</th>
-          <th scope="col" class="d-none d-md-table-cell">Name</th>
-          <th class="text-end" scope="col">Qty</th>
-          <th class="text-end d-none d-md-table-cell" scope="col">Avg ₹</th>
-          <th class="text-end" scope="col">LTP ₹</th>
-          <th class="text-end d-none d-lg-table-cell" scope="col">Mkt Value ₹</th>
+          <th>Symbol</th>
+          <th class="d-none d-md-table-cell">Name</th>
+          <th class="text-end">Qty</th>
+          <th class="text-end d-none d-md-table-cell">Avg ₹</th>
+          <th class="text-end">LTP ₹</th>
+          <th class="text-end d-none d-lg-table-cell">Mkt Value ₹</th>
           <th class="text-end">P&L ₹</th>
           <th class="text-end d-none d-lg-table-cell">% P&L</th>
         </tr>
@@ -37,7 +60,7 @@
         <tr>
           <td>
             <a href="{{ url_for('stock_info', symbol=row['symbol']) }}">
-              {{ row['symbol'] }}
+              {{ row['symbol'][4:].split("-EQ")[0] }}
             </a>
           </td>
 
@@ -54,24 +77,29 @@
           </td>
 
           <td class="text-end">
-            {{ "%.2f"|format(row['ltp']) }}
+            {{ "%.2f"|format(row['ltp']) if row['ltp'] is not none else "-" }}
           </td>
 
           <td class="text-end d-none d-lg-table-cell">
-            {{ "%.2f"|format(row['market_value']) }}
+            {{ "%.2f"|format(row['market_value']) if row['market_value'] is not none else "-" }}
           </td>
 
           <td class="text-end
             {% if row['unrealised_pnl'] > 0 %}text-success
             {% elif row['unrealised_pnl'] < 0 %}text-danger
-            {% else %}text-secondary{% endif %}">
-            ₹ {{ "%.2f"|format(row['unrealised_pnl']) }}
+            {% else %}text-secondary{% endif %}
+          ">
+            ₹ {{ "%.2f"|format(row['unrealised_pnl']) if row['unrealised_pnl'] is not none else "-" }}
           </td>
 
           <td class="text-end d-none d-lg-table-cell">
-            {{ "%.2f"|format(
-              (row['unrealised_pnl'] / (row['avg_price'] * row['quantity'])) * 100
-            ) }}%
+            {% if row['unrealised_pnl'] is not none %}
+              {{ "%.2f"|format(
+                (row['unrealised_pnl'] / (row['avg_price'] * row['quantity'])) * 100
+              ) }}%
+            {% else %}
+              -
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

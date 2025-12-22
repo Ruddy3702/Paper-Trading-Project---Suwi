@@ -13,7 +13,7 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class= Base)
 
 class Transaction(db.Model):
-    txn_id: Mapped[str] = mapped_column(String(40), primary_key=True, unique= True, default=lambda: str(uuid.uuid4()))
+    txn_id: Mapped[str] = mapped_column(String(40), primary_key=True, unique= True, default=lambda: str(uuid.uuid4().hex[:10]))
     user_id = mapped_column(String(100), ForeignKey("user_data.user"),nullable=False)
     symbol: Mapped[str] = mapped_column(String(30), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)

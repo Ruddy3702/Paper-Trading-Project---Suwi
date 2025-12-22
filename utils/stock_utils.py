@@ -1,7 +1,7 @@
 import datetime
 import os, json, time, requests
 from datetime import timedelta, datetime
-
+from sqlalchemy import func
 import pandas as pd
 from utils.api_client import get_fyers_credentials, get_fyers_access_token
 from fyers_apiv3 import fyersModel
@@ -282,6 +282,7 @@ def calculate_portfolio():
             positions[symbol] = {
                 "quantity": Decimal("0"),
                 "total_cost": Decimal("0"),
+                "name": tx.name,
             }
 
         if tx.type == "BUY":
@@ -289,10 +290,12 @@ def calculate_portfolio():
             positions[symbol]["total_cost"] += qty * price
 
         elif tx.type == "SELL":
-            positions[symbol]["quantity"] -= qty
-            positions[symbol]["total_cost"] -= qty * (
-                positions[symbol]["total_cost"] / max(positions[symbol]["quantity"] + qty, 1)
+            avg_price = (
+                positions[symbol]["total_cost"] / positions[symbol]["quantity"]
+                if positions[symbol]["quantity"] > 0 else Decimal("0")
             )
+            positions[symbol]["quantity"] -= qty
+            positions[symbol]["total_cost"] -= qty * avg_price
 
     portfolio = []
     for symbol, p in positions.items():
@@ -300,19 +303,12 @@ def calculate_portfolio():
             continue
 
         avg_price = p["total_cost"] / p["quantity"]
-        current_price = Decimal(str(get_price(symbol)))
-        market_value = current_price * p["quantity"]
-        unrealised_pnl = (current_price - avg_price) * p["quantity"]
-
         portfolio.append({
             "symbol": symbol,
+            "name": p["name"],
             "quantity": p["quantity"],
             "avg_price": avg_price,
-            "ltp": current_price,
-            "market_value": market_value,
-            "unrealised_pnl": unrealised_pnl,
         })
-
     return portfolio
 
 
@@ -328,6 +324,29 @@ def get_price(symbol):
     g.price_cache[symbol] = price
     return price
 
+
+def get_prices_bulk(symbols):
+    data = get_database(symbols)
+    if not data:
+        return {}
+
+    price_map = {}
+    for stock in data:
+        sym = stock["v"]["symbol"]
+        ltp = stock["v"]["lp"]
+        price_map[sym] = Decimal(str(ltp))
+
+    return price_map
+
+
+def get_quantity_held(symbol):
+    buys = db.session.query(
+        func.coalesce(func.sum(Transaction.quantity), 0)).filter( Transaction.user_id == current_user.user, Transaction.symbol == symbol, Transaction.type == "BUY").scalar()
+
+    sells = db.session.query(
+        func.coalesce(func.sum(Transaction.quantity), 0)).filter(Transaction.user_id == current_user.user, Transaction.symbol == symbol, Transaction.type == "SELL").scalar()
+
+    return Decimal(buys) - Decimal(sells)
 
 # def get_stock_news(company_name):
 #     news_api_key = decrypt(current_user.news_api_key)
