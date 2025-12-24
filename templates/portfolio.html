@@ -34,7 +34,7 @@
              name="order"
              value="{{ 'asc' if request.args.get('order', 'desc') == 'desc' else 'desc' }}">
 
-      <button class="btn btn-outline-secondary btn-sm" type="submit" title="Toggle order">
+      <button class="btn btn-outline-secondary btn-sm" type="submit">
         {% if request.args.get('order', 'desc') == 'desc' %}▲{% else %}▼{% endif %}
       </button>
     {% endif %}
@@ -93,7 +93,7 @@
           </td>
 
           <td class="text-end d-none d-lg-table-cell">
-            {% if row['unrealised_pnl'] is not none %}
+            {% if row['unrealised_pnl'] is not none and row['avg_price'] > 0 %}
               {{ "%.2f"|format(
                 (row['unrealised_pnl'] / (row['avg_price'] * row['quantity'])) * 100
               ) }}%

@@ -69,7 +69,7 @@ def enrich_stock_data(stock: dict) -> dict:
         "day_range_percent": round((high_price - low_price) / low_price * 100, 2) if low_price else None,
         "from_open_percent": round((lp - open_price) / open_price * 100, 2) if open_price else None,
         "spread_percent": round((spread / lp) * 100, 2) if lp else None,
-        "trend": "Bullish" if lp > open_price else "Bearish",
+        "trend": ("Bullish" if lp > open_price else "Bearish" if lp < open_price else "Neutral"),
         "liquidity_score": round(volume / spread, 2) if spread else None,
     })
 
@@ -102,47 +102,59 @@ def get_database(symbols=None):
 
     now = time.time()
 
-    if cache:
-        required_symbols = set(symbols) if symbols else set(cache.keys())
-        if all(
-            s in cache and now - cache[s]["timestamp"] < CACHE_TTL
-            for s in required_symbols
-        ):
-            return [enrich_stock_data(cache[s]["data"]) for s in required_symbols]
-
-    eq_list = symbols
-    if not eq_list:
+    # Resolve symbol list
+    if symbols:
+        eq_list = symbols
+    else:
         path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
         df = pd.read_csv(path)
         eq_list = df["symbol"].tolist()
 
-    response = fyers.quotes({"symbols": ",".join(eq_list)})
-    raw = response.get("d", [])
+    fresh_data = []
+    to_fetch = []
 
-    cleaned = []
-    for stock in raw:
-        if not isinstance(stock, dict) or "v" not in stock:
-            continue
+    # Decide cache hit vs fetch per symbol
+    for sym in eq_list:
+        if (
+            sym in cache
+            and now - cache[sym].get("timestamp", 0) < CACHE_TTL
+            and "data" in cache[sym]
+        ):
+            fresh_data.append(enrich_stock_data(cache[sym]["data"]))
+        else:
+            to_fetch.append(sym)
 
-        symbol = stock["v"].get("symbol")
-        if not symbol:
-            continue
+    # Fetch only missing / expired symbols
+    if to_fetch:
+        response = fyers.quotes({"symbols": ",".join(to_fetch)})
+        raw = response.get("d", [])
 
-        cache[symbol] = {
-            "data": stock,
-            "timestamp": time.time()
-        }
+        for stock in raw:
+            if not isinstance(stock, dict) or "v" not in stock:
+                continue
 
-        cleaned.append(enrich_stock_data(stock))
+            symbol = stock["v"].get("symbol")
+            if not symbol:
+                continue
 
-    with open(cache_file, "w") as f:
-        json.dump(cache, f)
+            cache[symbol] = {
+                "data": stock,
+                "timestamp": time.time()
+            }
 
-    return cleaned
+            fresh_data.append(enrich_stock_data(stock))
+
+        # Persist cache
+        try:
+            with open(cache_file, "w") as f:
+                json.dump(cache, f)
+        except Exception:
+            pass  # cache failure should not break app
+
+    return fresh_data
 
 
 def get_historic_data(symbol, range_key):
-    print("RANGE KEY RECEIVED:", range_key)
     creds = get_fyers_credentials()
     access_token = get_fyers_access_token()
     if not access_token:
@@ -201,7 +213,6 @@ def get_historic_data(symbol, range_key):
     unique = {c[0]: c for c in all_candles}
     merged = list(unique.values())
     merged.sort(key=lambda x: x[0])
-    print(len(merged))
     return {"s": "ok", "candles": merged}
 
 
@@ -252,17 +263,6 @@ def search(name):
         return response.json()
     except Exception:
         return {"items": []}
-
-
-def get_avg_price(stock):
-    results = Transaction.query.filter(Transaction.user_id == current_user.user, Transaction.symbol == stock).all()
-    print(results)
-    portfolio = {}
-    for tx in results:
-        symbol = tx.symbol
-        avg_cost = portfolio[symbol]["total_cost"] / portfolio[symbol]["quantity"]
-        portfolio[symbol]["quantity"] -= tx.quantity
-        portfolio[symbol]["total_cost"] -= tx.quantity * avg_cost
 
 
 def calculate_portfolio():
@@ -346,7 +346,8 @@ def get_quantity_held(symbol):
     sells = db.session.query(
         func.coalesce(func.sum(Transaction.quantity), 0)).filter(Transaction.user_id == current_user.user, Transaction.symbol == symbol, Transaction.type == "SELL").scalar()
 
-    return Decimal(buys) - Decimal(sells)
+    return (buys or Decimal("0")) - (sells or Decimal("0"))
+
 
 # def get_stock_news(company_name):
 #     news_api_key = decrypt(current_user.news_api_key)

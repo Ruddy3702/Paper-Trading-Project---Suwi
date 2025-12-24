@@ -21,7 +21,7 @@ class Transaction(db.Model):
     quantity = mapped_column(Numeric(12, 4), nullable=False)
     execution_price = mapped_column(Numeric(12, 2), nullable=False)
     total_value = mapped_column(Numeric(14, 2), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     remarks: Mapped[str] = mapped_column(String(255))
     realised_pnl = mapped_column(Numeric(14, 2), nullable=True)
 
@@ -68,6 +68,8 @@ class UserData(UserMixin, db.Model):
     fyers_client_id =  mapped_column(LargeBinary, nullable=False)
     fyers_secret_key =  mapped_column(LargeBinary, nullable=False)
     fyers_refresh_token = mapped_column(LargeBinary, nullable=True)
+    fyers_access_token = mapped_column(LargeBinary, nullable=True)
+    fyers_token_ts = mapped_column(Integer, nullable=True)
     google_api_key =  mapped_column(LargeBinary, nullable=False)
     cx =  mapped_column(LargeBinary, nullable=False)
     email = mapped_column(LargeBinary, unique=True, nullable=False)
@@ -79,12 +81,10 @@ class UserData(UserMixin, db.Model):
     def to_dict(self):
         return {
             "user" : self.user,
-            "password": self.password,
             "fyers_client_id": self.fyers_client_id,
             "fyers_secret_key": self.fyers_secret_key,
             "google_api_key": self.google_api_key,
             "cx": self.cx,
-            "fyers_auth_code": self.fyers_auth_code,
             "email" : self.email,
             "balance" : self.balance
         }
