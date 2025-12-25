@@ -12,9 +12,11 @@ from utils.models import db, UserData, Transaction
 from utils.stock_utils import get_data, get_database, search, calculate_portfolio, get_historic_data, get_prices_bulk, get_quantity_held
 from utils.api_client import get_auth_code, exchange_auth_code_for_tokens
 from utils.crypto_utils import encrypt
+from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "../Data")
+BASE_DIR = Path(__file__).resolve().parent
+CSV_PATH = BASE_DIR / "Data" / "NSE_EQ_only.csv"
+
 
 # Config section
 app = Flask(__name__)
@@ -187,9 +189,6 @@ def database():
     online = False
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")  # default descending
-
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    CSV_PATH = os.path.join(BASE_DIR, "data", "NSE_EQ_only.csv")
 
     df = pd.read_csv(CSV_PATH)
     symbols = df["symbol"].tolist()
