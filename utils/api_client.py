@@ -6,7 +6,7 @@ from flask_login import current_user
 from flask import url_for
 
 # CONFIG
-PIN = os.getenv("PIN")
+PIN = os.getenv("PIN", "1234")
 if not PIN:
     raise RuntimeError("FYERS PIN not set in environment")
 
