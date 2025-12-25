@@ -186,7 +186,6 @@ def database():
     page = int(request.args.get("page", 1))
     per_page = int(request.args.get("per_page", 50))
 
-    online = False
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")  # default descending
 
@@ -212,15 +211,51 @@ def database():
         else:
             data.sort(key=lambda x: x["v"].get(sort_by, 0) or 0, reverse=reverse)
 
-    now = datetime.now(pytz.timezone("Asia/Kolkata"))
-    is_weekday = now.weekday() < 5
-    is_market_time = time(9, 15) <= now.time() <= time(15, 30)
-
-    if is_weekday and is_market_time and current_user.fyers_connected:
-        online = True
+    online = (current_user.fyers_connected
+            and (now := datetime.now(pytz.timezone("Asia/Kolkata"))).weekday() < 5
+            and time(9, 15) <= now.time() <= time(15, 30))
     return render_template(
         "database.html", all_stocks=data, page=page, per_page=per_page, total=total, has_next=end < total,
         has_prev=page > 1, logged_in=True, status =online)
+
+
+@app.route("/api/search-stock")
+@login_required
+def search_stock_api():
+    q = request.args.get("q", "").strip().lower()
+
+    if len(q) < 2:
+        return jsonify([])
+
+    # Load NSE names once
+    path = os.path.join("Data", "NSE_EQ_names.csv")
+    df = pd.read_csv(path)
+
+    matches = df[
+        df["symbol"].str.lower().str.contains(q)
+        | df["name"].str.lower().str.contains(q)
+    ].head(5)
+
+    symbols = matches["symbol"].tolist()
+
+    if not symbols:
+        return jsonify([])
+
+    data = get_database(symbols)
+
+    results = []
+    for stock in data:
+        v = stock["v"]
+        results.append({
+            "symbol": v["symbol"],
+            "name": v["name"],
+            "price": v["lp"],
+            "chp": v["chp"],
+        })
+
+    return jsonify(results)
+
+
 
 @app.route("/stock/<symbol>")
 @login_required
@@ -385,7 +420,6 @@ def transactions():
         has_prev=has_prev,
         logged_in=True,
     )
-
 
 
 @app.route("/portfolio")

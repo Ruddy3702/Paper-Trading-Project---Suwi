@@ -55,6 +55,7 @@
       ({{ 'Descending' if order == 'desc' else 'Ascending' }})
     </p>
   {% endif %}
+
   <div class="table-responsive">
     <table class="table table-hover table-striped align-middle table-sm">
       <thead class="table-dark sticky-top">
@@ -103,8 +104,11 @@
               {% else %}text-secondary{% endif %}">
             {{ "%.2f"|format(chp) }}%
           </td>
-          <td class="text-center d-none d-sm-table-cell">
-            {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] else "-" }}%
+          <td class="text-center d-none d-sm-table-cell
+              {% if v['from_open_percent'] > 0 %}text-success
+              {% elif v['from_open_percent'] < 0 %}text-danger
+              {% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] is not none else "-" }}%
           </td>
           <td class="text-center d-none d-md-table-cell">
             {{ "%.2f"|format(v["open_price"]) if v["open_price"] else "-" }}
@@ -119,7 +123,10 @@
           <td class="text-center d-none d-lg-table-cell">
             {{ "{:,}".format(v["volume"]) if v["volume"] else "-" }}
           </td>
-          <td class="text-center d-none d-xl-table-cell">
+          <td class="text-center d-none d-xl-table-cell
+              {% if v['trend'] == 'Bullish' %}text-success
+              {% elif v['trend'] == 'Bearish' %}text-danger
+              {% else %}text-secondary{% endif %}">
             {{ v["trend"] if v["trend"] else "-" }}
           </td>
           <td>
@@ -134,40 +141,39 @@
               </a>
             </div>
           </td>
-
         </tr>
       {% endfor %}
       </tbody>
     </table>
-
-    <nav class="mt-3">
-      <ul class="pagination justify-content-center">
-        {% if has_prev %}
-        <li class="page-item">
-          <a class="page-link"
-             href="?page={{ page-1 }}&per_page={{ per_page }}{% if sort_by %}&sort_by={{ sort_by }}&order={{ order }}{% endif %}">
-            Previous
-          </a>
-        </li>
-        {% else %}
-        <li class="page-item disabled"><span class="page-link">Previous</span></li>
-        {% endif %}
-        <li class="page-item active">
-          <span class="page-link">Page {{ page }}</span>
-        </li>
-        {% if has_next %}
-        <li class="page-item">
-          <a class="page-link"
-             href="?page={{ page+1 }}&per_page={{ per_page }}{% if sort_by %}&sort_by={{ sort_by }}&order={{ order }}{% endif %}">
-            Next
-          </a>
-        </li>
-        {% else %}
-        <li class="page-item disabled"><span class="page-link">Next</span></li>
-        {% endif %}
-      </ul>
-    </nav>
   </div>
+
+  <nav class="mt-3">
+    <ul class="pagination justify-content-center">
+      {% if has_prev %}
+      <li class="page-item">
+        <a class="page-link"
+           href="?page={{ page-1 }}&per_page={{ per_page }}{% if sort_by %}&sort_by={{ sort_by }}&order={{ order }}{% endif %}">
+          Previous
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+      <li class="page-item active">
+        <span class="page-link">Page {{ page }}</span>
+      </li>
+      {% if has_next %}
+      <li class="page-item">
+        <a class="page-link"
+           href="?page={{ page+1 }}&per_page={{ per_page }}{% if sort_by %}&sort_by={{ sort_by }}&order={{ order }}{% endif %}">
+          Next
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
 </div>
 
 <script>
@@ -176,7 +182,6 @@
 
   searchInput.addEventListener("input", function () {
     const query = this.value.toLowerCase().trim();
-
     rows.forEach(row => {
       const text = row.dataset.search;
       row.style.display = text.includes(query) ? "" : "none";
