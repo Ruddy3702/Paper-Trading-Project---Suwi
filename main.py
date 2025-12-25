@@ -188,8 +188,10 @@ def database():
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")  # default descending
 
-    path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
-    df = pd.read_csv(path)
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    CSV_PATH = os.path.join(BASE_DIR, "data", "NSE_EQ_only.csv")
+
+    df = pd.read_csv(CSV_PATH)
     symbols = df["symbol"].tolist()
 
     total = len(symbols)
