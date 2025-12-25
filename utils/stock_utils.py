@@ -351,14 +351,17 @@ def get_quantity_held(symbol):
 
 
 def load_symbols_from_csv(query):
-    df = pd.read_csv("NSE_EQ_names.csv")
-    if query and len(query) < 2:
-        symbols = []
-    if query:
-        df = df[
-            df["symbol"].str.lower().str.contains(query) |
-            df["name"].str.lower().str.contains(query)
-        ]
+    df = pd.read_csv(os.path.join(DATA_DIR, "NSE_EQ_names.csv"))
+
+    if not query or len(query) < 2:
+        return []
+
+    query = query.lower()
+
+    df = df[
+        df["symbol"].str.lower().str.contains(query) |
+        df["name"].str.lower().str.contains(query)
+    ]
 
     return df["symbol"].tolist()
 
