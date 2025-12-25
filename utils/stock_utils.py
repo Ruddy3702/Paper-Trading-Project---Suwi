@@ -18,26 +18,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "../Data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-
-def write_equity_data(n):
-    """Writes n rows of (symbol, name) and (symbol) to files in /Data"""
-    input_path = os.path.join(DATA_DIR, "NSE_CM.csv")
-    eq_names_path = os.path.join(DATA_DIR, "NSE_EQ_names.csv")
-    eq_only_path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
-
-    data = pd.read_csv(input_path, header=0)
-    df = pd.DataFrame(data)
-
-    equities = df[df['symbol'].str.endswith('-EQ')]
-    eq = equities[['symbol']].head(n)
-    name_eq = equities[['symbol', 'name']].head(n)
-
-    name_eq.to_csv(eq_names_path, index=False)
-    eq.to_csv(eq_only_path, index=False)
-
-    print(f"Wrote {n} rows to:")
-    print(f"   • {eq_names_path}")
-    print(f"   • {eq_only_path}")
+# def write_equity_data(n):
+#     """Writes n rows of (symbol, name) and (symbol) to files in /Data"""
+#     input_path = os.path.join(DATA_DIR, "NSE_CM.csv")
+#     eq_names_path = os.path.join(DATA_DIR, "NSE_EQ_names.csv")
+#     eq_only_path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
+#
+#     data = pd.read_csv(input_path, header=0)
+#     df = pd.DataFrame(data)
+#
+#     equities = df[df['symbol'].str.endswith('-EQ')]
+#     eq = equities[['symbol']].head(n)
+#     name_eq = equities[['symbol', 'name']].head(n)
+#
+#     name_eq.to_csv(eq_names_path, index=False)
+#     eq.to_csv(eq_only_path, index=False)
+#
+#     print(f"Wrote {n} rows to:")
+#     print(f"   • {eq_names_path}")
+#     print(f"   • {eq_only_path}")
 
 
 def enrich_stock_data(stock: dict) -> dict:
@@ -49,7 +48,7 @@ def enrich_stock_data(stock: dict) -> dict:
         return stock
 
     lp = v.get("lp") or 0
-    prev_close = v.get("prev_close_price") or 0
+    prev_close = (v.get("prev_close_price") or v.get("close_price") or v.get("previous_close") or 0)
     open_price = v.get("open_price") or 0
     high_price = v.get("high_price") or 0
     low_price = v.get("low_price") or 0
@@ -58,18 +57,20 @@ def enrich_stock_data(stock: dict) -> dict:
 
     v["name"] = name_map.get(symbol, symbol)
 
-    price_change = lp - prev_close if prev_close else 0
-    percent_change = (price_change / prev_close * 100) if prev_close else 0
+    if prev_close:
+        price_change = lp - prev_close
+        percent_change = (price_change / prev_close) * 100
+        v["ch"] = round(price_change, 2)
+        v["chp"] = round(percent_change, 2)
+    else:
+        v["ch"] = None
+        v["chp"] = None
 
     v.update({
-        "price_change": round(price_change, 2),
-        "percent_change": round(percent_change, 2),
-        "ch": round(price_change, 2),
-        "chp": round(percent_change, 2),
         "day_range_percent": round((high_price - low_price) / low_price * 100, 2) if low_price else None,
         "from_open_percent": round((lp - open_price) / open_price * 100, 2) if open_price else None,
         "spread_percent": round((spread / lp) * 100, 2) if lp else None,
-        "trend": ("Bullish" if lp > open_price else "Bearish" if lp < open_price else "Neutral"),
+        "trend": "Bullish" if lp > open_price else "Bearish" if lp < open_price else "Neutral",
         "liquidity_score": round(volume / spread, 2) if spread else None,
     })
 
@@ -347,6 +348,19 @@ def get_quantity_held(symbol):
         func.coalesce(func.sum(Transaction.quantity), 0)).filter(Transaction.user_id == current_user.user, Transaction.symbol == symbol, Transaction.type == "SELL").scalar()
 
     return (buys or Decimal("0")) - (sells or Decimal("0"))
+
+
+def load_symbols_from_csv(query):
+    df = pd.read_csv("NSE_EQ_names.csv")
+    if query and len(query) < 2:
+        symbols = []
+    if query:
+        df = df[
+            df["symbol"].str.lower().str.contains(query) |
+            df["name"].str.lower().str.contains(query)
+        ]
+
+    return df["symbol"].tolist()
 
 
 # def get_stock_news(company_name):

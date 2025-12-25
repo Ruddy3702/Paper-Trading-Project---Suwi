@@ -1,33 +1,32 @@
 {% extends "base.html" %}
 {% block title %}All Stocks{% endblock %}
 
-{% set current_query = request.query_string.decode() %}
-
 {% block content %}
 <div class="container-fluid container-md py-3 my-3">
+
   <h2 class="pb-3 text-center text-md-start">
-    Top 500 Stocks
-    {% if status %}
-      🟢
-    {% else %}
-      🔴
-    {% endif %}
+    Stocks
+    {% if status %}🟢{% else %}🔴{% endif %}
   </h2>
 
-  <div class="mb-3">
-    <input type="text" id="stockSearch" class="form-control form-control-sm" placeholder="Search stocks by name or symbol (e.g. INFY, Reliance)">
-  </div>
+  <form method="get" action="{{ url_for('database') }}" class="mb-3">
+    <input
+      type="text"
+      name="q"
+      value="{{ query }}"
+      class="form-control form-control-sm"
+      placeholder="Search NSE stocks by name or symbol (e.g. INFY, RELIANCE)"
+    >
+  </form>
 
   <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center gap-2 mb-3">
-    <form method="get"
-          action="{{ url_for('database') }}"
-          class="d-flex flex-wrap align-items-center gap-2">
-      <label for="sortSelect"
-             class="form-label fw-semibold mb-0">
-        Sort Stocks By:
-      </label>
-      <select id="sortSelect"
-              name="sort_by"
+    <form method="get" action="{{ url_for('database') }}" class="d-flex flex-wrap gap-2">
+
+      <input type="hidden" name="q" value="{{ query }}">
+
+      <label class="form-label fw-semibold mb-0">Sort by:</label>
+
+      <select name="sort_by"
               class="form-select form-select-sm w-auto"
               onchange="this.form.submit()">
         <option value="">Select</option>
@@ -36,25 +35,17 @@
         <option value="lp" {% if sort_by == 'lp' %}selected{% endif %}>Price</option>
         <option value="trend" {% if sort_by == 'trend' %}selected{% endif %}>Trend</option>
       </select>
-      <input type="hidden"
-             name="order"
-             value="{% if order == 'desc' and sort_by %}asc{% else %}desc{% endif %}">
+
+      <input type="hidden" name="order" value="{{ order }}">
     </form>
+
     {% if sort_by %}
-      <a href="{{ url_for('database', sort_by=sort_by, order='asc' if order=='desc' else 'desc') }}"
-         class="btn btn-outline-secondary btn-sm"
-         title="Toggle sort order">
+      <a class="btn btn-outline-secondary btn-sm"
+         href="?q={{ query }}&sort_by={{ sort_by }}&order={{ 'asc' if order=='desc' else 'desc' }}">
         {% if order == 'desc' %}▲{% else %}▼{% endif %}
       </a>
     {% endif %}
   </div>
-
-  {% if sort_by %}
-    <p class="text-muted small ms-1 mb-2">
-      Sorting by <strong>{{ sort_by|capitalize }}</strong>
-      ({{ 'Descending' if order == 'desc' else 'Ascending' }})
-    </p>
-  {% endif %}
 
   <div class="table-responsive">
     <table class="table table-hover table-striped align-middle table-sm">
@@ -62,83 +53,72 @@
         <tr>
           <th>Symbol</th>
           <th>Name</th>
-          <th>Price(₹)</th>
-          <th>Change(₹)</th>
+          <th>Price ₹</th>
+          <th>Change ₹</th>
           <th>Change %</th>
-          <th class="d-none d-sm-table-cell">From Open (%)</th>
-          <th class="d-none d-md-table-cell">Open(₹)</th>
-          <th class="d-none d-md-table-cell">Close(₹)</th>
-          <th class="d-none d-lg-table-cell">High/Low(₹)</th>
+          <th class="d-none d-sm-table-cell">From Open %</th>
+          <th class="d-none d-md-table-cell">Open ₹</th>
+          <th class="d-none d-md-table-cell">Prev Close ₹</th>
+          <th class="d-none d-lg-table-cell">High / Low ₹</th>
           <th class="d-none d-lg-table-cell">Volume</th>
           <th class="d-none d-xl-table-cell">Trend</th>
           <th class="text-center">Action</th>
         </tr>
       </thead>
+
       <tbody>
       {% for stock in all_stocks %}
-        {% set v = stock['v'] %}
-        <tr data-search="{{ v['name']|lower }} {{ v['symbol']|lower }}">
+        {% set v = stock["v"] %}
+        <tr>
           <td class="text-center">
-            <a href="{{ url_for('stock_info', symbol=v['symbol']) }}"
-               class="fw-semibold text-decoration-none">
+            <a href="{{ url_for('stock_info', symbol=v['symbol']) }}">
               {{ v['symbol'][4:].split('-EQ')[0] }}
             </a>
           </td>
-          <td class="text-center small">
-            {{ v["name"] }}
-          </td>
+
+          <td class="text-center small">{{ v["name"] }}</td>
+
           <td class="text-center fw-semibold">
-            {{ "%.2f"|format(v["lp"]) if v["lp"] else "-" }}
+            {{ "%.2f"|format(v["lp"]) if v["lp"] is not none else "-" }}
           </td>
-          {% set ch = v.get('ch', v.get('price_change', 0)) %}
-          <td class="text-center
-              {% if ch > 0 %}text-success
-              {% elif ch < 0 %}text-danger
-              {% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(ch) }}
+
+          <td class="text-center {% if v['ch'] > 0 %}text-success{% elif v['ch'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["ch"]) if v["ch"] is not none else "-" }}
           </td>
-          {% set chp = v.get('chp', v.get('percent_change', 0)) %}
-          <td class="text-center
-              {% if chp > 0 %}text-success
-              {% elif chp < 0 %}text-danger
-              {% else %}text-secondary{% endif %}">
-            {{ "%.2f"|format(chp) }}%
+
+          <td class="text-center {% if v['chp'] > 0 %}text-success{% elif v['chp'] < 0 %}text-danger{% else %}text-secondary{% endif %}">
+            {{ "%.2f"|format(v["chp"]) if v["chp"] is not none else "-" }}%
           </td>
-          <td class="text-center d-none d-sm-table-cell
-              {% if v['from_open_percent'] > 0 %}text-success
-              {% elif v['from_open_percent'] < 0 %}text-danger
-              {% else %}text-secondary{% endif %}">
+
+          <td class="text-center d-none d-sm-table-cell">
             {{ "%.2f"|format(v["from_open_percent"]) if v["from_open_percent"] is not none else "-" }}%
           </td>
+
           <td class="text-center d-none d-md-table-cell">
-            {{ "%.2f"|format(v["open_price"]) if v["open_price"] else "-" }}
+            {{ "%.2f"|format(v["open_price"]) if v["open_price"] is not none else "-" }}
           </td>
+
           <td class="text-center d-none d-md-table-cell">
-            {{ "%.2f"|format(v["prev_close_price"]) if v["prev_close_price"] else "-" }}
+            {{ "%.2f"|format(v["prev_close_price"]) if v["prev_close_price"] is not none else "-" }}
           </td>
+
           <td class="text-center d-none d-lg-table-cell">
-            {{ "%.2f"|format(v["high_price"]) if v["high_price"] else "-" }}/
-            {{ "%.2f"|format(v["low_price"]) if v["low_price"] else "-" }}
+            {{ "%.2f"|format(v["high_price"]) if v["high_price"] is not none else "-" }} /
+            {{ "%.2f"|format(v["low_price"]) if v["low_price"] is not none else "-" }}
           </td>
+
           <td class="text-center d-none d-lg-table-cell">
             {{ "{:,}".format(v["volume"]) if v["volume"] else "-" }}
           </td>
-          <td class="text-center d-none d-xl-table-cell
-              {% if v['trend'] == 'Bullish' %}text-success
-              {% elif v['trend'] == 'Bearish' %}text-danger
-              {% else %}text-secondary{% endif %}">
-            {{ v["trend"] if v["trend"] else "-" }}
+
+          <td class="text-center d-none d-xl-table-cell">
+            {{ v["trend"] }}
           </td>
+
           <td>
-            <div class="d-flex flex-column flex-md-row justify-content-center gap-1">
-              <a href="{{ url_for('buy', symbol=v['symbol']) }}{% if current_query %}?{{ current_query }}{% endif %}"
-                 class="btn btn-success btn-sm px-2">
-                Buy
-              </a>
-              <a href="{{ url_for('sell', symbol=v['symbol']) }}{% if current_query %}?{{ current_query }}{% endif %}"
-                 class="btn btn-danger btn-sm px-2">
-                Sell
-              </a>
+            <div class="d-flex justify-content-center gap-1">
+              <a class="btn btn-success btn-sm" href="{{ url_for('buy', symbol=v['symbol']) }}">Buy</a>
+              <a class="btn btn-danger btn-sm" href="{{ url_for('sell', symbol=v['symbol']) }}">Sell</a>
             </div>
           </td>
         </tr>
@@ -150,43 +130,30 @@
   <nav class="mt-3">
     <ul class="pagination justify-content-center">
       {% if has_prev %}
-      <li class="page-item">
-        <a class="page-link"
-           href="?page={{ page-1 }}&per_page={{ per_page }}{% if sort_by %}&sort_by={{ sort_by }}&order={{ order }}{% endif %}">
-          Previous
-        </a>
-      </li>
+        <li class="page-item">
+          <a class="page-link"
+             href="?q={{ query }}&page={{ page-1 }}&per_page={{ per_page }}&sort_by={{ sort_by }}&order={{ order }}">
+            Previous
+          </a>
+        </li>
       {% else %}
-      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+        <li class="page-item disabled"><span class="page-link">Previous</span></li>
       {% endif %}
-      <li class="page-item active">
-        <span class="page-link">Page {{ page }}</span>
-      </li>
+
+      <li class="page-item active"><span class="page-link">Page {{ page }}</span></li>
+
       {% if has_next %}
-      <li class="page-item">
-        <a class="page-link"
-           href="?page={{ page+1 }}&per_page={{ per_page }}{% if sort_by %}&sort_by={{ sort_by }}&order={{ order }}{% endif %}">
-          Next
-        </a>
-      </li>
+        <li class="page-item">
+          <a class="page-link"
+             href="?q={{ query }}&page={{ page+1 }}&per_page={{ per_page }}&sort_by={{ sort_by }}&order={{ order }}">
+            Next
+          </a>
+        </li>
       {% else %}
-      <li class="page-item disabled"><span class="page-link">Next</span></li>
+        <li class="page-item disabled"><span class="page-link">Next</span></li>
       {% endif %}
     </ul>
   </nav>
+
 </div>
-
-<script>
-  const searchInput = document.getElementById("stockSearch");
-  const rows = document.querySelectorAll("tbody tr");
-
-  searchInput.addEventListener("input", function () {
-    const query = this.value.toLowerCase().trim();
-    rows.forEach(row => {
-      const text = row.dataset.search;
-      row.style.display = text.includes(query) ? "" : "none";
-    });
-  });
-</script>
-
 {% endblock %}

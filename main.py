@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, LoginManager, login_required, current_user, logout_user
 from decimal import Decimal
 from utils.models import db, UserData, Transaction
-from utils.stock_utils import get_data, get_database, search, calculate_portfolio, get_historic_data, get_prices_bulk, get_quantity_held
+from utils.stock_utils import get_data, get_database, search, calculate_portfolio, get_historic_data, get_prices_bulk, get_quantity_held, load_symbols_from_csv
 from utils.api_client import get_auth_code, exchange_auth_code_for_tokens
 from utils.crypto_utils import encrypt
 from pathlib import Path
@@ -183,14 +183,17 @@ def home():
 @app.route("/stocks", methods=["GET"])
 @login_required
 def database():
-    page = int(request.args.get("page", 1))
-    per_page = int(request.args.get("per_page", 50))
+    query = request.args.get("q", "").strip().lower()
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = max(int(request.args.get("per_page", 50)), 1)
 
     sort_by = request.args.get("sort_by")
-    order = request.args.get("order", "desc")  # default descending
+    order = request.args.get("order", "desc")
 
-    df = pd.read_csv(CSV_PATH)
-    symbols = df["symbol"].tolist()
+    if query and len(query) < 2:
+        symbols = []
+    else:
+        symbols = load_symbols_from_csv(query)
 
     total = len(symbols)
     start = (page - 1) * per_page
@@ -199,24 +202,28 @@ def database():
     symbols_page = symbols[start:end]
 
     data = get_database(symbols_page)
-    if not data:
-        flash(f"Please connect Fyers first")
+
+    if data is None:
+        flash("Please connect Fyers first")
         return redirect(url_for("get_code"))
 
     if sort_by:
-        reverse = True if order == "desc" else False
-
+        reverse = order == "desc"
         if sort_by == "trend":
-            data.sort(key=lambda x: 0 if x["v"].get("trend") == "Bullish" else 1, reverse=reverse)
+            data.sort(key=lambda x: 0 if x["v"].get("trend") == "Bullish" else 1,reverse=reverse)
         else:
-            data.sort(key=lambda x: x["v"].get(sort_by, 0) or 0, reverse=reverse)
+            data.sort(key=lambda x: x["v"].get(sort_by) or 0, reverse=reverse)
 
-    online = (current_user.fyers_connected
-            and (now := datetime.now(pytz.timezone("Asia/Kolkata"))).weekday() < 5
-            and time(9, 15) <= now.time() <= time(15, 30))
-    return render_template(
-        "database.html", all_stocks=data, page=page, per_page=per_page, total=total, has_next=end < total,
-        has_prev=page > 1, logged_in=True, status =online)
+    now = datetime.now(pytz.timezone("Asia/Kolkata"))
+    online = (
+        current_user.fyers_connected
+        and now.weekday() < 5
+        and time(9, 15) <= now.time() <= time(15, 30)
+    )
+
+    return render_template("database.html", all_stocks=data, page=page,
+                           per_page=per_page, total=total, has_next=end < total, has_prev=page > 1,
+                           logged_in=True, status=online, query=query,sort_by=sort_by, order=order)
 
 
 @app.route("/api/search-stock")
@@ -254,7 +261,6 @@ def search_stock_api():
         })
 
     return jsonify(results)
-
 
 
 @app.route("/stock/<symbol>")
