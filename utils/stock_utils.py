@@ -111,21 +111,19 @@ def get_database(symbols=None):
         df = pd.read_csv(path)
         eq_list = df["symbol"].tolist()
 
+    if not eq_list:
+        return []
+
     fresh_data = []
     to_fetch = []
 
-    # Decide cache hit vs fetch per symbol
     for sym in eq_list:
-        if (
-            sym in cache
-            and now - cache[sym].get("timestamp", 0) < CACHE_TTL
-            and "data" in cache[sym]
-        ):
+        if (sym in cache and now - cache[sym].get("timestamp", 0) < CACHE_TTL
+            and "data" in cache[sym]):
             fresh_data.append(enrich_stock_data(cache[sym]["data"]))
         else:
             to_fetch.append(sym)
 
-    # Fetch only missing / expired symbols
     if to_fetch:
         response = fyers.quotes({"symbols": ",".join(to_fetch)})
         raw = response.get("d", [])
@@ -138,21 +136,18 @@ def get_database(symbols=None):
             if not symbol:
                 continue
 
-            cache[symbol] = {
-                "data": stock,
-                "timestamp": time.time()
-            }
+            cache[symbol] = {"data": stock, "timestamp": time.time()}
 
             fresh_data.append(enrich_stock_data(stock))
 
-        # Persist cache
         try:
             with open(cache_file, "w") as f:
                 json.dump(cache, f)
         except Exception:
-            pass  # cache failure should not break app
+            pass
 
     return fresh_data
+
 
 
 def get_historic_data(symbol, range_key):
@@ -350,11 +345,11 @@ def get_quantity_held(symbol):
     return (buys or Decimal("0")) - (sells or Decimal("0"))
 
 
-def load_symbols_from_csv(query):
+def load_symbols_from_csv(query=None):
     df = pd.read_csv(os.path.join(DATA_DIR, "NSE_EQ_names.csv"))
 
-    if not query or len(query) < 2:
-        return []
+    if not query:
+        return df["symbol"].tolist()
 
     query = query.lower()
 
@@ -364,7 +359,6 @@ def load_symbols_from_csv(query):
     ]
 
     return df["symbol"].tolist()
-
 
 # def get_stock_news(company_name):
 #     news_api_key = decrypt(current_user.news_api_key)

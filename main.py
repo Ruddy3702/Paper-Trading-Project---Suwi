@@ -15,6 +15,7 @@ from utils.crypto_utils import encrypt
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = os.path.join(BASE_DIR, "../Data")
 CSV_PATH = BASE_DIR / "Data" / "NSE_EQ_only.csv"
 
 
@@ -190,15 +191,21 @@ def database():
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")
 
+    # 🔹 symbol resolution
     if query and len(query) < 2:
         symbols = []
-    else:
+    elif query:
         symbols = load_symbols_from_csv(query)
+    else:
+        # default load when no search query
+        path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
+        df = pd.read_csv(path)
+        symbols = df["symbol"].tolist()
 
     total = len(symbols)
+
     start = (page - 1) * per_page
     end = start + per_page
-
     symbols_page = symbols[start:end]
 
     data = get_database(symbols_page)
@@ -210,20 +217,18 @@ def database():
     if sort_by:
         reverse = order == "desc"
         if sort_by == "trend":
-            data.sort(key=lambda x: 0 if x["v"].get("trend") == "Bullish" else 1,reverse=reverse)
+            data.sort(key=lambda x: 0 if x["v"].get("trend") == "Bullish" else 1, reverse=reverse)
         else:
             data.sort(key=lambda x: x["v"].get(sort_by) or 0, reverse=reverse)
 
     now = datetime.now(pytz.timezone("Asia/Kolkata"))
-    online = (
-        current_user.fyers_connected
-        and now.weekday() < 5
-        and time(9, 15) <= now.time() <= time(15, 30)
-    )
+    online = (current_user.fyers_connected and now.weekday() < 5
+        and time(9, 15) <= now.time() <= time(15, 30))
 
-    return render_template("database.html", all_stocks=data, page=page,
-                           per_page=per_page, total=total, has_next=end < total, has_prev=page > 1,
-                           logged_in=True, status=online, query=query,sort_by=sort_by, order=order)
+    return render_template(
+        "database.html", all_stocks=data, page=page, per_page=per_page,
+        total=total, has_next=end < total, has_prev=page > 1, logged_in=True, status=online,
+        query=query, sort_by=sort_by, order=order)
 
 
 @app.route("/api/search-stock")
