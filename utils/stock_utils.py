@@ -9,13 +9,14 @@ from utils.crypto_utils import decrypt, encrypt
 from flask_login import current_user
 from utils.models import db, Transaction
 from flask import g
+from pathlib import Path
 from decimal import Decimal
 
 CACHE_TTL = 30  # seconds (adjust: 5–30s for market data)
 NAME_MAP = None
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "Data")
+ROOT_DIR = Path(__file__).resolve().parents[1]  # src/
+DATA_DIR = ROOT_DIR / "Data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # def write_equity_data(n):

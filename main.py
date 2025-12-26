@@ -14,10 +14,9 @@ from utils.api_client import get_auth_code, exchange_auth_code_for_tokens
 from utils.crypto_utils import encrypt
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = os.path.join(BASE_DIR, "Data")
-CSV_PATH = BASE_DIR / "Data" / "NSE_EQ_only.csv"
-
+ROOT_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT_DIR / "Data"
+CSV_PATH = ROOT_DIR / "Data" / "NSE_EQ_only.csv"
 
 # Config section
 app = Flask(__name__)
