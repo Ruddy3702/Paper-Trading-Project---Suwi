@@ -182,17 +182,19 @@ def home():
 @app.route("/stocks", methods=["GET"])
 @login_required
 def database():
-    query = request.args.get("q", "").strip().lower()
+    query = request.args.get("q")
+    query = query.strip().lower() if query else None
     page = max(int(request.args.get("page", 1)), 1)
     per_page = max(int(request.args.get("per_page", 50)), 1)
 
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")
 
-    if query and len(query) < 2:
-        symbols = []
-    elif query:
-        symbols = load_symbols_from_csv(query)
+    if query:
+        if len(query) < 2:
+            symbols = []
+        else:
+            symbols = load_symbols_from_csv(query)
     else:
         path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
         df = pd.read_csv(path)
@@ -239,10 +241,7 @@ def search_stock_api():
     path = os.path.join(DATA_DIR, "NSE_EQ_names.csv")
     df = pd.read_csv(path)
 
-    matches = df[
-        df["symbol"].str.lower().str.contains(q)
-        | df["name"].str.lower().str.contains(q)
-    ].head(5)
+    matches = df[df["symbol"].str.lower().str.contains(q) | df["name"].str.lower().str.contains(q)].head(5)
 
     symbols = matches["symbol"].tolist()
 

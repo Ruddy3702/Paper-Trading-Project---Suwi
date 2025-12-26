@@ -10,14 +10,18 @@
   </h2>
 
   <form method="get" action="{{ url_for('database') }}" class="mb-3">
-    <input
-      type="text"
-      name="q"
-      value="{{ query }}"
-      class="form-control form-control-sm"
-      placeholder="Search NSE stocks by name or symbol (e.g. INFY, RELIANCE)"
-    >
-  </form>
+  <input type="hidden" name="page" value="1">
+  <input type="hidden" name="sort_by" value="{{ sort_by }}">
+  <input type="hidden" name="order" value="{{ order }}">
+
+  <input
+    type="text"
+    name="q"
+    value="{{ query }}"
+    class="form-control form-control-sm"
+    placeholder="Search NSE stocks by name or symbol (e.g. INFY, RELIANCE)"
+  >
+</form>
 
   <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center gap-2 mb-3">
     <form method="get" action="{{ url_for('database') }}" class="d-flex flex-wrap gap-2">
