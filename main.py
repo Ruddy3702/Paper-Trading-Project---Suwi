@@ -15,7 +15,7 @@ from utils.crypto_utils import encrypt
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = os.path.join(BASE_DIR, "../Data")
+DATA_DIR = os.path.join(BASE_DIR, "Data")
 CSV_PATH = BASE_DIR / "Data" / "NSE_EQ_only.csv"
 
 
@@ -31,8 +31,8 @@ if db_uri.startswith("postgres://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,     # detects dead connections
-    "pool_recycle": 280,       # seconds (Render kills idle conns ~300s)
+    "pool_pre_ping": True,
+    "pool_recycle": 280,
     "pool_size": 5,
     "max_overflow": 5,
 }
@@ -191,13 +191,11 @@ def database():
     sort_by = request.args.get("sort_by")
     order = request.args.get("order", "desc")
 
-    # 🔹 symbol resolution
     if query and len(query) < 2:
         symbols = []
     elif query:
         symbols = load_symbols_from_csv(query)
     else:
-        # default load when no search query
         path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
         df = pd.read_csv(path)
         symbols = df["symbol"].tolist()

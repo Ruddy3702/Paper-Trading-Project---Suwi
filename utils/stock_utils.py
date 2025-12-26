@@ -15,7 +15,7 @@ CACHE_TTL = 30  # seconds (adjust: 5–30s for market data)
 NAME_MAP = None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "../Data")
+DATA_DIR = os.path.join(BASE_DIR, "Data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # def write_equity_data(n):
