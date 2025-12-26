@@ -215,7 +215,7 @@ def get_historic_data(symbol, range_key):
 def get_name_map():
     global NAME_MAP
     if NAME_MAP is None:
-        df = pd.read_csv(DATA_DIR / "NSE_EQ_names.csv")
+        df = pd.read_csv(os.path.join(DATA_DIR, "NSE_EQ_names.csv"))
         NAME_MAP = df.set_index("symbol")["name"].to_dict()
     return NAME_MAP
 
