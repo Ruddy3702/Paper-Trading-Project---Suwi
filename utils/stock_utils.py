@@ -149,7 +149,6 @@ def get_database(symbols=None):
     return fresh_data
 
 
-
 def get_historic_data(symbol, range_key):
     creds = get_fyers_credentials()
     access_token = get_fyers_access_token()
@@ -215,8 +214,7 @@ def get_historic_data(symbol, range_key):
 def get_name_map():
     global NAME_MAP
     if NAME_MAP is None:
-        path = os.path.join(DATA_DIR, "NSE_EQ_names.csv")
-        df = pd.read_csv(path)
+        df = pd.read_csv(DATA_DIR / "NSE_EQ_names.csv")
         NAME_MAP = df.set_index("symbol")["name"].to_dict()
     return NAME_MAP
 
@@ -346,7 +344,7 @@ def get_quantity_held(symbol):
 
 
 def load_symbols_from_csv(query=None):
-    df = pd.read_csv(os.path.join(DATA_DIR, "NSE_EQ_names.csv"))
+    df = pd.read_csv(DATA_DIR / "NSE_EQ_names.csv")
 
     if not query:
         return df["symbol"].tolist()
