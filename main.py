@@ -14,9 +14,8 @@ from utils.api_client import get_auth_code, exchange_auth_code_for_tokens
 from utils.crypto_utils import encrypt
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = ROOT_DIR / "Data"
-CSV_PATH = ROOT_DIR / "Data" / "NSE_EQ_only.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "Data")
 
 # Config section
 app = Flask(__name__)
@@ -237,7 +236,7 @@ def search_stock_api():
         return jsonify([])
 
     # Load NSE names once
-    path = os.path.join("Data", "NSE_EQ_names.csv")
+    path = os.path.join(DATA_DIR, "NSE_EQ_names.csv")
     df = pd.read_csv(path)
 
     matches = df[

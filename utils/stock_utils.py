@@ -15,8 +15,8 @@ from decimal import Decimal
 CACHE_TTL = 30  # seconds (adjust: 5–30s for market data)
 NAME_MAP = None
 
-ROOT_DIR = Path(__file__).resolve().parents[1]  # src/
-DATA_DIR = ROOT_DIR / "Data"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "..", "Data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # def write_equity_data(n):
@@ -345,7 +345,7 @@ def get_quantity_held(symbol):
 
 
 def load_symbols_from_csv(query=None):
-    df = pd.read_csv(DATA_DIR / "NSE_EQ_names.csv")
+    df = pd.read_csv(os.path.join(DATA_DIR, "NSE_EQ_names.csv"))
 
     if not query:
         return df["symbol"].tolist()
