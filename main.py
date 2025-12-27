@@ -185,11 +185,8 @@ def home():
 def database():
     force_refresh = request.args.get("refresh") == "1"
 
-    query = request.args.get("q")
-    if not query or query.lower() == "none":
-        query = None
-    else:
-        query = query.strip().lower()
+    raw_q = request.args.get("q")
+    query = raw_q.strip().lower() if raw_q and raw_q.lower() != "none" else None
 
     page = max(int(request.args.get("page", 1)), 1)
     per_page = max(int(request.args.get("per_page", 100)), 1)
@@ -200,60 +197,41 @@ def database():
 
     GLOBAL_SORT_FIELDS = {"volume", "chp", "lp"}
 
+    all_data = get_global_market_data(force_refresh=force_refresh)
+
+    if all_data is None:
+        flash("Please connect Fyers first")
+        return redirect(url_for("get_code"))
+
     if query:
-        if len(query) < 2:
-            symbols = []
+        all_data = [
+            s for s in all_data if query in s["v"]["symbol"].lower()
+            or query in s["v"]["name"].lower()]
+
+    if sort_by:
+        if sort_by == "trend":
+            all_data.sort(key=lambda x: 0 if x["v"].get("trend") == "Bullish"
+            else 1, reverse=reverse)
         else:
-            symbols = load_symbols_from_csv(query)
-    else:
-        path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
-        df = pd.read_csv(path)
-        symbols = df["symbol"].tolist()
+            all_data.sort(key=lambda x: x["v"].get(sort_by) or 0,
+                reverse=reverse)
 
-    data = []
-    total = 0
+    total = len(all_data)
+    start = (page - 1) * per_page
+    end = start + per_page
+    data = all_data[start:end]
 
-    if sort_by in GLOBAL_SORT_FIELDS and not query:
-        all_data = get_global_market_data(force_refresh=force_refresh)
-
-        if not all_data:
-            flash("Please connect Fyers first")
-            return redirect(url_for("get_code"))
-
-        all_data.sort(key=lambda x: x["v"].get(sort_by) or 0, reverse=reverse)
-
-        total = len(all_data)
-        start = (page - 1) * per_page
-        end = start + per_page
-        data = all_data[start:end]
-        has_next = total > page * per_page
-    else:
-        total = len(symbols)
-        start = (page - 1) * per_page
-        end = start + per_page
-        symbols_page = symbols[start:end]
-
-        if symbols_page:
-            data = get_database(symbols_page)
-
-            if data is None:
-                flash("Please connect Fyers first")
-                return redirect(url_for("get_code"))
-
-            if sort_by:
-                if sort_by == "trend":
-                    data.sort(key=lambda x: 0 if x["v"].get("trend") == "Bullish" else 1, reverse=reverse)
-                else:
-                    data.sort(key=lambda x: x["v"].get(sort_by) or 0, reverse=reverse)
-        has_next = total > page * per_page
+    has_next = total > page * per_page
     has_prev = page > 1
+
     now = datetime.now(pytz.timezone("Asia/Kolkata"))
     online = (current_user.fyers_connected and now.weekday() < 5
-              and time(9, 15) <= now.time() <= time(15, 30))
+        and time(9, 15) <= now.time() <= time(15, 30))
 
-    return render_template("database.html", all_stocks=data, page=page, per_page=per_page,
-                           total=total, has_next=has_next, has_prev=has_prev, logged_in=True, status=online,
-                           query=query, sort_by=sort_by, order=order)
+    return render_template("database.html", all_stocks=data,
+                           page=page, per_page=per_page, total=total, has_next=has_next,
+                           has_prev=has_prev, logged_in=True, status=online, query=query,
+                           sort_by=sort_by, order=order)
 
 
 @app.route("/api/search-stock")
