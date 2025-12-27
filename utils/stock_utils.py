@@ -352,18 +352,13 @@ def get_quantity_held(symbol):
 
 def load_symbols_from_csv(query=None):
     df = pd.read_csv(os.path.join(DATA_DIR, "NSE_EQ_names.csv"))
+    if query:
+        query = query.lower()
+        df = df[df["symbol"].str.lower().str.contains(query) |
+                df["name"].str.lower().str.contains(query)]
 
-    if not query:
-        return df["symbol"].tolist()
-
-    query = query.lower()
-
-    df = df[
-        df["symbol"].str.lower().str.contains(query) |
-        df["name"].str.lower().str.contains(query)
-    ]
-
-    return df["symbol"].tolist()
+    symbols = df["symbol"].tolist()
+    return [f"NSE:{s}" if not s.startswith("NSE:") else s for s in symbols]
 
 
 def get_global_market_data(force_refresh=False):
