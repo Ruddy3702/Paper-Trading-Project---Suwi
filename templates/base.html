@@ -2,8 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-  <!-- ✅ REQUIRED FOR MOBILE -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>{% block title %}{% endblock %}</title>
@@ -16,7 +14,6 @@
   {% endblock %}
 
   <style>
-    /* === Table Layout === */
     .table {
       width: 100%;
       border-collapse: separate;
@@ -102,7 +99,6 @@
       padding: 0.2rem 0.5rem;
     }
 
-    /* ✅ MOBILE FIXES ONLY */
     @media (max-width: 768px) {
       header {
         padding-left: 0.5rem;
@@ -136,7 +132,6 @@
 
 <body style="background-color: #F5F7FA">
 
-<!-- ✅ NAVBAR: responsive wrapping, no redesign -->
 <div class="container-fluid navbar-bg">
   <header class="d-flex flex-wrap align-items-center justify-content-between py-3 mb-3 border-bottom">
 
@@ -167,7 +162,6 @@
   </header>
 </div>
 
-<!-- ✅ FLASHES: full width on mobile -->
 <div class="container px-3">
   {% with messages = get_flashed_messages() %}
     {% if messages %}

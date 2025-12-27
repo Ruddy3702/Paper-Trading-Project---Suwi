@@ -14,6 +14,9 @@
       {% else %}text-secondary{% endif %}">
       Profit/Loss: ₹ {{ "%.2f"|format(total_unrealised_pnl) }}
     </h6>
+    <h6>
+      <a href="{{ url_for('balance') }}">Adjust Balance</a>
+    </h6>
   </div>
 
   <form method="get" class="d-flex align-items-center gap-2 mb-3">
