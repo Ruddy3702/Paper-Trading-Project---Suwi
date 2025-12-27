@@ -20,6 +20,7 @@ GLOBAL_MARKET_CACHE = {
 GLOBAL_TTL = 300  # 5 minutes
 CACHE_TTL = 30  # seconds (adjust: 5–30s for market data)
 NAME_MAP = None
+MAX_BATCH = 400
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", "Data")
@@ -91,12 +92,8 @@ def get_database(symbols=None):
         return None
 
     creds = get_fyers_credentials()
-    fyers = fyersModel.FyersModel(
-        client_id=creds["client_id"],
-        token=access_token,
-        is_async=False,
-        log_path=""
-    )
+    fyers = fyersModel.FyersModel(client_id=creds["client_id"], token=access_token,
+                                  is_async=False, log_path="")
 
     cache_file = os.path.join(DATA_DIR, "stock_cache.json")
     cache = {}
@@ -110,16 +107,11 @@ def get_database(symbols=None):
 
     now = time.time()
 
-    # Resolve symbol list
     if symbols:
         eq_list = symbols
     else:
-        path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
-        df = pd.read_csv(path)
+        df = pd.read_csv(DATA_DIR / "NSE_EQ_only.csv")
         eq_list = df["symbol"].tolist()
-
-    if not eq_list:
-        return []
 
     fresh_data = []
     to_fetch = []
@@ -131,27 +123,26 @@ def get_database(symbols=None):
         else:
             to_fetch.append(sym)
 
-    if to_fetch:
-        response = fyers.quotes({"symbols": ",".join(to_fetch)})
-        raw = response.get("d", [])
+    for i in range(0, len(to_fetch), MAX_BATCH):
+        batch = to_fetch[i : i + MAX_BATCH]
+        resp = fyers.quotes({"symbols": ",".join(batch)})
+        raw = resp.get("d", [])
 
         for stock in raw:
             if not isinstance(stock, dict) or "v" not in stock:
                 continue
-
-            symbol = stock["v"].get("symbol")
-            if not symbol:
+            sym = stock["v"].get("symbol")
+            if not sym:
                 continue
 
-            cache[symbol] = {"data": stock, "timestamp": time.time()}
-
+            cache[sym] = {"data": stock, "timestamp": time.time()}
             fresh_data.append(enrich_stock_data(stock))
 
-        try:
-            with open(cache_file, "w") as f:
-                json.dump(cache, f)
-        except Exception:
-            pass
+    try:
+        with open(cache_file, "w") as f:
+            json.dump(cache, f)
+    except Exception:
+        pass
 
     return fresh_data
 
