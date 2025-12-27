@@ -186,7 +186,10 @@ def database():
     force_refresh = request.args.get("refresh") == "1"
 
     query = request.args.get("q")
-    query = query.strip().lower() if query else None
+    if not query or query.lower() == "none":
+        query = None
+    else:
+        query = query.strip().lower()
 
     page = max(int(request.args.get("page", 1)), 1)
     per_page = max(int(request.args.get("per_page", 100)), 1)
