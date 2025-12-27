@@ -21,6 +21,7 @@
     <form method="get" action="{{ url_for('database') }}" class="d-flex flex-wrap gap-2">
       <input type="hidden" name="q" value="{{ query or '' }}">
       <input type="hidden" name="page" value="1">
+      <input type="hidden" name="order" value="{{ order }}">
 
       <label class="form-label fw-semibold mb-0">Sort by:</label>
 
@@ -33,9 +34,8 @@
         <option value="lp" {% if sort_by == 'lp' %}selected{% endif %}>Price</option>
         <option value="trend" {% if sort_by == 'trend' %}selected{% endif %}>Trend</option>
       </select>
-
-      <input type="hidden" name="order" value="{{ order }}">
     </form>
+
 
     {% if sort_by %}
       <a class="btn btn-outline-secondary btn-sm"
