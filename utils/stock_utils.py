@@ -12,6 +12,12 @@ from flask import g
 from pathlib import Path
 from decimal import Decimal
 
+GLOBAL_MARKET_CACHE = {
+    "data": None,
+    "ts": 0
+}
+
+GLOBAL_TTL = 300  # 5 minutes
 CACHE_TTL = 30  # seconds (adjust: 5–30s for market data)
 NAME_MAP = None
 
@@ -358,6 +364,43 @@ def load_symbols_from_csv(query=None):
     ]
 
     return df["symbol"].tolist()
+
+
+def get_global_market_data(force_refresh=False):
+    """
+    Returns live data for ALL NSE stocks.
+    Cached for GLOBAL_TTL seconds.
+    """
+    now = time.time()
+
+    if (
+        not force_refresh
+        and GLOBAL_MARKET_CACHE["data"] is not None
+        and now - GLOBAL_MARKET_CACHE["ts"] < GLOBAL_TTL
+    ):
+        return GLOBAL_MARKET_CACHE["data"]
+
+    # Load all symbols
+    path = os.path.join(DATA_DIR, "NSE_EQ_only.csv")
+    symbols = pd.read_csv(path)["symbol"].tolist()
+
+    # ---- FYERS CALL (1 or 2 batches) ----
+    # assuming FYERS can take ~1000 symbols safely
+    BATCH_SIZE = 1000
+    all_data = []
+
+    for i in range(0, len(symbols), BATCH_SIZE):
+        batch = symbols[i:i + BATCH_SIZE]
+        batch_data = get_database(batch)
+        if batch_data:
+            all_data.extend(batch_data)
+
+    # Update cache
+    GLOBAL_MARKET_CACHE["data"] = all_data
+    GLOBAL_MARKET_CACHE["ts"] = now
+
+    return all_data
+
 
 # def get_stock_news(company_name):
 #     news_api_key = decrypt(current_user.news_api_key)
