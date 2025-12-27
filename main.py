@@ -225,7 +225,7 @@ def database():
 
     return render_template(
         "database.html", all_stocks=data, page=page, per_page=per_page,
-        total=total, has_next=end < total, has_prev=page > 1, logged_in=True, status=online,
+        total=total, has_next = len(symbols) > page * per_page, has_prev=page > 1, logged_in=True, status=online,
         query=query, sort_by=sort_by, order=order)
 
 
